@@ -98,6 +98,7 @@ return [
          */
 
         'team_foreign_key' => 'tenant_id',
+        
     ],
 
     /*

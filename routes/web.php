@@ -7,6 +7,11 @@ use App\Http\Controllers\System\PlanController;
 use App\Http\Controllers\System\PlanFeatureController;
 use App\Http\Controllers\System\SubscriptionController;
 use App\Http\Controllers\System\SubscriptionLifecycleController;
+
+use App\Http\Controllers\Tenant\AuthController as TenantAuthController;
+use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
+use App\Http\Controllers\Tenant\UserController as TenantUserController;
+
 use Illuminate\Support\Facades\Route;
 
 
@@ -18,14 +23,21 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
 
-    if (
-        auth()->check() &&
-        auth()->user()->is_system_admin
-    ) {
-        return redirect()->route('system.dashboard');
+    if (auth()->check()) {
+
+        if (auth()->user()->is_system_admin) {
+            return redirect()
+                ->route('system.dashboard');
+        }
+
+        if (auth()->user()->tenant_id) {
+            return redirect()
+                ->route('app.dashboard');
+        }
     }
 
-    return redirect()->route('system.login');
+    return redirect()
+        ->route('system.login');
 });
 
 
@@ -50,6 +62,7 @@ Route::prefix('system')
             'showLogin'
         ])->name('login');
 
+
         Route::post('/login', [
             AuthController::class,
             'login'
@@ -58,13 +71,13 @@ Route::prefix('system')
 
         /*
         |--------------------------------------------------------------------------
-        | Protected System Admin Routes
+        | Protected System Routes
         |--------------------------------------------------------------------------
         */
 
         Route::middleware([
             'auth',
-            'system.admin'
+            'system.admin',
         ])->group(function () {
 
             /*
@@ -85,7 +98,6 @@ Route::prefix('system')
             |--------------------------------------------------------------------------
             */
 
-            // مهم: data قبل resource
             Route::get('/tenants/data', [
                 TenantController::class,
                 'data'
@@ -100,31 +112,35 @@ Route::prefix('system')
                 'edit',
             ]);
 
+
             /*
             |--------------------------------------------------------------------------
-            | features
+            | Plans
             |--------------------------------------------------------------------------
             */
+
+            Route::get('/plans/data', [
+                PlanController::class,
+                'data'
+            ])->name('plans.data');
+
+
+            /*
+             * يجب أن تكون مسارات Features
+             * قبل resource plans.
+             */
+
             Route::get('/plans/{plan}/features', [
                 PlanFeatureController::class,
                 'edit'
             ])->name('plans.features.edit');
+
 
             Route::put('/plans/{plan}/features', [
                 PlanFeatureController::class,
                 'update'
             ])->name('plans.features.update');
 
-
-            /*
-            |--------------------------------------------------------------------------
-            | plans
-            |--------------------------------------------------------------------------
-            */
-            Route::get('/plans/data', [
-                PlanController::class,
-                'data'
-            ])->name('plans.data');
 
             Route::resource(
                 'plans',
@@ -137,9 +153,10 @@ Route::prefix('system')
 
             /*
             |--------------------------------------------------------------------------
-            | subscriptions
+            | Subscriptions
             |--------------------------------------------------------------------------
             */
+
             Route::get('/subscriptions/data', [
                 SubscriptionController::class,
                 'data'
@@ -166,43 +183,76 @@ Route::prefix('system')
 
             /*
             |--------------------------------------------------------------------------
-            | subscriptions changes
+            | Subscription Lifecycle
             |--------------------------------------------------------------------------
             */
+
             Route::post(
                 '/subscriptions/{subscription}/convert-trial',
-                [SubscriptionLifecycleController::class, 'convertTrial']
-            )->name('subscriptions.convert-trial');
+                [
+                    SubscriptionLifecycleController::class,
+                    'convertTrial'
+                ]
+            )->name(
+                'subscriptions.convert-trial'
+            );
 
 
             Route::post(
                 '/subscriptions/{subscription}/renew',
-                [SubscriptionLifecycleController::class, 'renew']
-            )->name('subscriptions.renew');
+                [
+                    SubscriptionLifecycleController::class,
+                    'renew'
+                ]
+            )->name(
+                'subscriptions.renew'
+            );
 
 
             Route::post(
                 '/subscriptions/{subscription}/change-plan',
-                [SubscriptionLifecycleController::class, 'changePlan']
-            )->name('subscriptions.change-plan');
+                [
+                    SubscriptionLifecycleController::class,
+                    'changePlan'
+                ]
+            )->name(
+                'subscriptions.change-plan'
+            );
 
 
             Route::post(
                 '/subscriptions/{subscription}/suspend',
-                [SubscriptionLifecycleController::class, 'suspend']
-            )->name('subscriptions.suspend');
+                [
+                    SubscriptionLifecycleController::class,
+                    'suspend'
+                ]
+            )->name(
+                'subscriptions.suspend'
+            );
 
 
             Route::post(
                 '/subscriptions/{subscription}/resume',
-                [SubscriptionLifecycleController::class, 'resume']
-            )->name('subscriptions.resume');
+                [
+                    SubscriptionLifecycleController::class,
+                    'resume'
+                ]
+            )->name(
+                'subscriptions.resume'
+            );
 
 
             Route::post(
                 '/subscriptions/{subscription}/cancel',
-                [SubscriptionLifecycleController::class, 'cancel']
-            )->name('subscriptions.cancel');
+                [
+                    SubscriptionLifecycleController::class,
+                    'cancel'
+                ]
+            )->name(
+                'subscriptions.cancel'
+            );
+
+
             /*
             |--------------------------------------------------------------------------
             | Logout
@@ -213,7 +263,144 @@ Route::prefix('system')
                 AuthController::class,
                 'logout'
             ])->name('logout');
-
         });
+    });
 
+
+/*
+|--------------------------------------------------------------------------
+| Tenant Application
+|--------------------------------------------------------------------------
+*/
+
+Route::prefix('app')
+    ->name('app.')
+    ->group(function () {
+
+        /*
+        |--------------------------------------------------------------------------
+        | Authentication
+        |--------------------------------------------------------------------------
+        */
+
+        Route::get('/login', [
+            TenantAuthController::class,
+            'showLogin'
+        ])->name('login');
+
+
+        Route::post('/login', [
+            TenantAuthController::class,
+            'login'
+        ])->name('login.submit');
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | Authenticated Tenant User
+        |--------------------------------------------------------------------------
+        */
+
+        Route::middleware([
+            'auth',
+            'tenant.user',
+        ])->group(function () {
+
+            /*
+             * Logout يجب أن يبقى متاحًا
+             * حتى لو انتهى الاشتراك.
+             */
+
+            Route::post('/logout', [
+                TenantAuthController::class,
+                'logout'
+            ])->name('logout');
+
+
+            /*
+            |--------------------------------------------------------------------------
+            | Active Subscription
+            |--------------------------------------------------------------------------
+            */
+
+            Route::middleware([
+                'subscription.active',
+            ])->group(function () {
+
+                /*
+                |--------------------------------------------------------------------------
+                | Dashboard
+                |--------------------------------------------------------------------------
+                */
+
+                Route::get('/dashboard', [
+                    TenantDashboardController::class,
+                    'index'
+                ])->name('dashboard');
+
+
+                /*
+                |--------------------------------------------------------------------------
+                | Tenant Users
+                |--------------------------------------------------------------------------
+                */
+
+                Route::prefix('users')
+                    ->name('users.')
+                    ->group(function () {
+
+                        Route::get('/', [
+                            TenantUserController::class,
+                            'index'
+                        ])
+                            ->middleware(
+                                'permission:users.view'
+                            )
+                            ->name('index');
+
+
+                        Route::post('/', [
+                            TenantUserController::class,
+                            'store'
+                        ])
+                            ->middleware(
+                                'permission:users.create'
+                            )
+                            ->name('store');
+
+
+                        Route::get('/{user}', [
+                            TenantUserController::class,
+                            'show'
+                        ])
+                            ->whereNumber('user')
+                            ->middleware(
+                                'permission:users.view'
+                            )
+                            ->name('show');
+
+
+                        Route::put('/{user}', [
+                            TenantUserController::class,
+                            'update'
+                        ])
+                            ->whereNumber('user')
+                            ->middleware(
+                                'permission:users.update'
+                            )
+                            ->name('update');
+
+
+                        Route::patch('/{user}/status', [
+                            TenantUserController::class,
+                            'status'
+                        ])
+                            ->whereNumber('user')
+                            ->middleware(
+                                'permission:users.deactivate'
+                            )
+                            ->name('status');
+                    });
+            });
+        });
     });

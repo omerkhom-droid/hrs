@@ -11,6 +11,7 @@ class Tenant extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'id',
         'uuid',
         'code',
         'name',
