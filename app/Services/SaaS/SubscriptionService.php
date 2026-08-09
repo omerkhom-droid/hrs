@@ -12,6 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 class SubscriptionService
 {
+   
     /*
     |--------------------------------------------------------------------------
     | Create
@@ -42,10 +43,16 @@ class SubscriptionService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $startsAt = CarbonImmutable::parse(
-                $data['starts_at']
-            )->startOfDay();
+            $timezone =
+                $tenant->timezone
+                ?: 'Asia/Riyadh';
 
+            $startsAt = CarbonImmutable::parse(
+                $data['starts_at'],
+                $timezone
+            )
+                ->startOfDay()
+                ->utc();
 
             $exists = Subscription::query()
                 ->where('tenant_id', $tenant->id)
@@ -164,7 +171,7 @@ class SubscriptionService
             }
 
 
-            $now = CarbonImmutable::now();
+            $now = CarbonImmutable::now('UTC');
 
 
             $subscription->status = 'expired';
@@ -261,7 +268,7 @@ class SubscriptionService
             }
 
 
-            $now = CarbonImmutable::now();
+            $now = CarbonImmutable::now('UTC');
 
 
             if (
@@ -367,7 +374,7 @@ class SubscriptionService
             }
 
 
-            $now = CarbonImmutable::now();
+            $now = CarbonImmutable::now('UTC');
 
 
             $subscription->status = 'expired';
@@ -554,7 +561,7 @@ class SubscriptionService
         array $extraMetadata = []
     ): Subscription {
 
-        $now = CarbonImmutable::now();
+        $now = CarbonImmutable::now('UTC');
 
 
         $status =
