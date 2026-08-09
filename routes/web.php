@@ -11,6 +11,7 @@ use App\Http\Controllers\System\SubscriptionLifecycleController;
 use App\Http\Controllers\Tenant\AuthController as TenantAuthController;
 use App\Http\Controllers\Tenant\DashboardController as TenantDashboardController;
 use App\Http\Controllers\Tenant\UserController as TenantUserController;
+use App\Http\Controllers\Tenant\RoleController as TenantRoleController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -401,6 +402,55 @@ Route::prefix('app')
                             )
                             ->name('status');
                     });
+
+
+                    Route::prefix('roles')
+                        ->name('roles.')
+                        ->group(function () {
+
+                            Route::get('/', [
+                                TenantRoleController::class,
+                                'index'
+                            ])
+                                ->middleware('permission:roles.view')
+                                ->name('index');
+
+
+                            Route::get('/{role}', [
+                                TenantRoleController::class,
+                                'show'
+                            ])
+                                ->whereNumber('role')
+                                ->middleware('permission:roles.view')
+                                ->name('show');
+
+
+                            Route::post('/', [
+                                TenantRoleController::class,
+                                'store'
+                            ])
+                                ->middleware('permission:roles.manage')
+                                ->name('store');
+
+
+                            Route::put('/{role}', [
+                                TenantRoleController::class,
+                                'update'
+                            ])
+                                ->whereNumber('role')
+                                ->middleware('permission:roles.manage')
+                                ->name('update');
+
+
+                            Route::delete('/{role}', [
+                                TenantRoleController::class,
+                                'destroy'
+                            ])
+                                ->whereNumber('role')
+                                ->middleware('permission:roles.manage')
+                                ->name('destroy');
+                        });
+                        
             });
         });
     });

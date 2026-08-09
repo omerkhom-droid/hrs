@@ -5,22 +5,85 @@
 
 @section('content')
 
-<div class="container-fluid p-0">
+<style>
+    #tenantModal {
+        overflow: hidden !important;
+    }
 
-    {{-- Header --}}
+    #tenantModal .modal-dialog {
+        width: calc(100% - 30px);
+        max-width: 1140px;
+        height: calc(100vh - 30px);
+        margin: 15px auto;
+    }
+
+    #tenantModal .modal-content {
+        height: 100%;
+        overflow: hidden;
+    }
+
+    #tenantModal #tenantForm {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+    }
+
+    #tenantModal .modal-header,
+    #tenantModal .modal-footer {
+        flex-shrink: 0;
+        background: #fff;
+    }
+
+    #tenantModal .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+    }
+
+    .tenant-form-section {
+        padding: 20px;
+        background: #fff;
+        border: 1px solid #e9ecef;
+        border-radius: 16px;
+    }
+
+    .tenant-form-section-title {
+        margin-bottom: 18px;
+        font-weight: 700;
+    }
+
+    @media (max-width: 767px) {
+        #tenantModal .modal-dialog {
+            width: calc(100% - 10px);
+            height: calc(100vh - 10px);
+            margin: 5px auto;
+        }
+
+        #tenantModal .modal-body {
+            padding: 15px !important;
+        }
+    }
+</style>
+
+<div class="container-fluid px-3 px-lg-4 py-3" dir="rtl">
+
+    {{-- رأس الصفحة --}}
     <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
 
         <div>
             <h4 class="mb-1">عملاء المنصة</h4>
 
             <div class="text-muted">
-                إدارة حسابات العملاء في منصة رؤية يوم
+                إدارة العملاء والمستخدمين والاشتراكات
             </div>
         </div>
 
-        <button type="button"
-                class="btn btn-primary px-4"
-                id="btnAddTenant">
+        <button
+            type="button"
+            class="btn btn-primary px-4"
+            id="btnAddTenant">
 
             + إضافة عميل
 
@@ -29,95 +92,112 @@
     </div>
 
 
-    {{-- Filters --}}
+    {{-- البحث والفلاتر --}}
     <div class="card border-0 shadow-sm rounded-4 mb-4">
 
         <div class="card-body">
 
-            <div class="row g-3">
+            <form id="tenantSearchForm">
 
-                <div class="col-lg-5">
+                <div class="row g-3">
 
-                    <label class="form-label">
-                        البحث
-                    </label>
+                    <div class="col-lg-5">
 
-                    <input type="text"
-                           id="tenantSearch"
-                           class="form-control"
-                           placeholder="الاسم، الكود، البريد، الجوال...">
+                        <label class="form-label">
+                            البحث
+                        </label>
 
-                </div>
+                        <input
+                            type="search"
+                            id="tenantSearch"
+                            class="form-control"
+                            placeholder="الاسم، الكود، البريد، الجوال...">
+
+                    </div>
 
 
-                <div class="col-lg-3">
+                    <div class="col-lg-3">
 
-                    <label class="form-label">
-                        الحالة
-                    </label>
+                        <label class="form-label">
+                            الحالة
+                        </label>
 
-                    <select id="tenantStatus"
+                        <select
+                            id="tenantStatusFilter"
                             class="form-select">
 
-                        <option value="">
-                            جميع الحالات
-                        </option>
+                            <option value="">
+                                جميع الحالات
+                            </option>
 
-                        <option value="active">
-                            نشط
-                        </option>
+                            <option value="active">
+                                نشط
+                            </option>
 
-                        <option value="suspended">
-                            موقوف
-                        </option>
+                            <option value="suspended">
+                                موقوف
+                            </option>
 
-                        <option value="inactive">
-                            غير نشط
-                        </option>
+                            <option value="inactive">
+                                غير نشط
+                            </option>
 
-                    </select>
+                        </select>
 
-                </div>
+                    </div>
 
 
-                <div class="col-lg-2">
+                    <div class="col-lg-2">
 
-                    <label class="form-label">
-                        عدد السجلات
-                    </label>
+                        <label class="form-label">
+                            عدد السجلات
+                        </label>
 
-                    <select id="perPage"
+                        <select
+                            id="tenantPerPage"
                             class="form-select">
 
-                        <option value="15">15</option>
-                        <option value="25">25</option>
-                        <option value="50">50</option>
+                            <option value="10">10</option>
+                            <option value="15" selected>15</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
 
-                    </select>
+                        </select>
 
-                </div>
+                    </div>
 
 
-                <div class="col-lg-2 d-flex align-items-end">
+                    <div class="col-lg-2 d-flex align-items-end gap-2">
 
-                    <button type="button"
+                        <button
+                            type="submit"
+                            class="btn btn-primary flex-grow-1">
+
+                            بحث
+
+                        </button>
+
+                        <button
+                            type="button"
                             id="btnResetFilters"
-                            class="btn btn-light border w-100">
+                            class="btn btn-light border">
 
-                        إعادة تعيين
+                            إعادة
 
-                    </button>
+                        </button>
+
+                    </div>
 
                 </div>
 
-            </div>
+            </form>
 
         </div>
 
     </div>
 
 
-    {{-- Table --}}
+    {{-- جدول العملاء --}}
     <div class="card border-0 shadow-sm rounded-4">
 
         <div class="card-header bg-white border-0 py-3 px-4">
@@ -128,8 +208,9 @@
                     قائمة العملاء
                 </h6>
 
-                <span class="badge bg-primary-subtle text-primary"
-                      id="totalTenants">
+                <span
+                    class="badge bg-primary-subtle text-primary"
+                    id="totalTenants">
 
                     0 عميل
 
@@ -147,13 +228,15 @@
                 <thead class="table-light">
 
                 <tr>
-                    <th class="text-center" width="70">#</th>
+                    <th class="text-center">#</th>
                     <th>الكود</th>
                     <th>اسم العميل</th>
-                    <th>مسؤول التواصل</th>
-                    <th>بيانات التواصل</th>
+                    <th>الباقة</th>
+                    <th class="text-center">المستخدمون</th>
+                    <th class="text-center">الاشتراك</th>
+                    <th>تاريخ النهاية</th>
                     <th class="text-center">الحالة</th>
-                    <th class="text-center" width="180">الإجراءات</th>
+                    <th class="text-center">الإجراءات</th>
                 </tr>
 
                 </thead>
@@ -161,7 +244,8 @@
                 <tbody id="tenantsTableBody">
 
                 <tr>
-                    <td colspan="7"
+                    <td
+                        colspan="9"
                         class="text-center py-5 text-muted">
 
                         جاري تحميل البيانات...
@@ -180,12 +264,14 @@
 
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
 
-                <div class="text-muted small"
-                     id="paginationInfo">
+                <div
+                    class="text-muted small"
+                    id="paginationInfo">
                 </div>
 
                 <nav>
-                    <ul class="pagination pagination-sm mb-0"
+                    <ul
+                        class="pagination pagination-sm mb-0"
                         id="pagination">
                     </ul>
                 </nav>
@@ -199,46 +285,60 @@
 </div>
 
 
-{{-- Tenant Modal --}}
-<div class="modal fade"
-     id="tenantModal"
-     tabindex="-1"
-     aria-hidden="true">
+{{-- مودال العميل --}}
+<div
+    class="modal"
+    id="tenantModal"
+    tabindex="-1"
+    aria-hidden="true"
+    dir="rtl">
 
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
 
-        <div class="modal-content border-0 rounded-4">
+        <div class="modal-content border-0 rounded-4 shadow">
 
             <form id="tenantForm">
 
+                @csrf
+
                 <div class="modal-header">
 
-                    <h5 class="modal-title"
+                    <h5
+                        class="modal-title"
                         id="tenantModalTitle">
 
                         إضافة عميل جديد
 
                     </h5>
 
-                    <button type="button"
-                            class="btn-close"
-                            data-bs-dismiss="modal">
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-close-tenant-modal>
                     </button>
 
                 </div>
 
 
-                <div class="modal-body p-4">
+                <div class="modal-body bg-light p-4">
 
-                    <input type="hidden"
-                           id="tenantId">
+                    <input
+                        type="hidden"
+                        id="tenantId">
 
 
-                    <div class="mb-4">
+                    <div
+                        class="alert alert-danger d-none"
+                        id="tenantFormErrors">
+                    </div>
 
-                        <h6 class="mb-3">
-                            المعلومات الأساسية
-                        </h6>
+
+                    {{-- بيانات العميل --}}
+                    <div class="tenant-form-section mb-4">
+
+                        <div class="tenant-form-section-title">
+                            بيانات العميل
+                        </div>
 
 
                         <div class="row g-3">
@@ -250,16 +350,14 @@
                                     <span class="text-danger">*</span>
                                 </label>
 
-                                <input type="text"
-                                       name="code"
-                                       id="code"
-                                       class="form-control"
-                                       dir="ltr"
-                                       placeholder="TEN001">
-
-                                <div class="form-text">
-                                    لا يمكن تغييره بعد إنشاء العميل.
-                                </div>
+                                <input
+                                    type="text"
+                                    name="code"
+                                    id="tenantCode"
+                                    class="form-control"
+                                    dir="ltr"
+                                    placeholder="TEN001"
+                                    required>
 
                             </div>
 
@@ -271,11 +369,12 @@
                                     <span class="text-danger">*</span>
                                 </label>
 
-                                <input type="text"
-                                       name="name"
-                                       id="name"
-                                       class="form-control"
-                                       placeholder="اسم المنشأة أو العميل">
+                                <input
+                                    type="text"
+                                    name="name"
+                                    id="tenantName"
+                                    class="form-control"
+                                    required>
 
                             </div>
 
@@ -286,10 +385,11 @@
                                     مسؤول التواصل
                                 </label>
 
-                                <input type="text"
-                                       name="contact_name"
-                                       id="contact_name"
-                                       class="form-control">
+                                <input
+                                    type="text"
+                                    name="contact_name"
+                                    id="tenantContactName"
+                                    class="form-control">
 
                             </div>
 
@@ -297,12 +397,48 @@
                             <div class="col-md-6">
 
                                 <label class="form-label">
-                                    الحالة
+                                    بريد المنشأة
+                                    <span class="text-danger">*</span>
                                 </label>
 
-                                <select name="status"
-                                        id="status"
-                                        class="form-select">
+                                <input
+                                    type="email"
+                                    name="email"
+                                    id="tenantEmail"
+                                    class="form-control"
+                                    dir="ltr"
+                                    required>
+
+                            </div>
+
+
+                            <div class="col-md-6">
+
+                                <label class="form-label">
+                                    رقم الجوال
+                                </label>
+
+                                <input
+                                    type="text"
+                                    name="phone"
+                                    id="tenantPhone"
+                                    class="form-control"
+                                    dir="ltr">
+
+                            </div>
+
+
+                            <div class="col-md-6 editing-only d-none">
+
+                                <label class="form-label">
+                                    حالة العميل
+                                </label>
+
+                                <select
+                                    name="status"
+                                    id="tenantStatus"
+                                    class="form-select"
+                                    disabled>
 
                                     <option value="active">
                                         نشط
@@ -320,68 +456,6 @@
 
                             </div>
 
-                        </div>
-
-                    </div>
-
-
-                    <hr>
-
-
-                    <div class="my-4">
-
-                        <h6 class="mb-3">
-                            بيانات التواصل
-                        </h6>
-
-
-                        <div class="row g-3">
-
-                            <div class="col-md-6">
-
-                                <label class="form-label">
-                                    البريد الإلكتروني
-                                </label>
-
-                                <input type="email"
-                                       name="email"
-                                       id="email"
-                                       class="form-control"
-                                       dir="ltr">
-
-                            </div>
-
-
-                            <div class="col-md-6">
-
-                                <label class="form-label">
-                                    رقم الجوال
-                                </label>
-
-                                <input type="text"
-                                       name="phone"
-                                       id="phone"
-                                       class="form-control"
-                                       dir="ltr">
-
-                            </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <hr>
-
-
-                    <div class="mt-4">
-
-                        <h6 class="mb-3">
-                            إعدادات الحساب
-                        </h6>
-
-
-                        <div class="row g-3">
 
                             <div class="col-md-3">
 
@@ -389,33 +463,17 @@
                                     الدولة
                                 </label>
 
-                                <select name="country_code"
-                                        id="country_code"
-                                        class="form-select">
+                                <select
+                                    name="country_code"
+                                    id="tenantCountryCode"
+                                    class="form-select">
 
-                                    <option value="SA">
-                                        السعودية
-                                    </option>
-
-                                    <option value="AE">
-                                        الإمارات
-                                    </option>
-
-                                    <option value="BH">
-                                        البحرين
-                                    </option>
-
-                                    <option value="KW">
-                                        الكويت
-                                    </option>
-
-                                    <option value="OM">
-                                        عُمان
-                                    </option>
-
-                                    <option value="QA">
-                                        قطر
-                                    </option>
+                                    <option value="SA">السعودية</option>
+                                    <option value="AE">الإمارات</option>
+                                    <option value="BH">البحرين</option>
+                                    <option value="KW">الكويت</option>
+                                    <option value="OM">عُمان</option>
+                                    <option value="QA">قطر</option>
 
                                 </select>
 
@@ -428,9 +486,10 @@
                                     العملة
                                 </label>
 
-                                <select name="currency_code"
-                                        id="currency_code"
-                                        class="form-select">
+                                <select
+                                    name="currency_code"
+                                    id="tenantCurrencyCode"
+                                    class="form-select">
 
                                     <option value="SAR">SAR</option>
                                     <option value="AED">AED</option>
@@ -450,17 +509,13 @@
                                     اللغة
                                 </label>
 
-                                <select name="locale"
-                                        id="locale"
-                                        class="form-select">
+                                <select
+                                    name="locale"
+                                    id="tenantLocale"
+                                    class="form-select">
 
-                                    <option value="ar">
-                                        العربية
-                                    </option>
-
-                                    <option value="en">
-                                        English
-                                    </option>
+                                    <option value="ar">العربية</option>
+                                    <option value="en">English</option>
 
                                 </select>
 
@@ -473,35 +528,273 @@
                                     المنطقة الزمنية
                                 </label>
 
-                                <select name="timezone"
-                                        id="timezone"
-                                        class="form-select">
+                                <select
+                                    name="timezone"
+                                    id="tenantTimezone"
+                                    class="form-select">
 
-                                    <option value="Asia/Riyadh">
-                                        الرياض
-                                    </option>
-
-                                    <option value="Asia/Dubai">
-                                        دبي
-                                    </option>
-
-                                    <option value="Asia/Kuwait">
-                                        الكويت
-                                    </option>
-
-                                    <option value="Asia/Bahrain">
-                                        البحرين
-                                    </option>
-
-                                    <option value="Asia/Qatar">
-                                        قطر
-                                    </option>
-
-                                    <option value="Asia/Muscat">
-                                        مسقط
-                                    </option>
+                                    <option value="Asia/Riyadh">الرياض</option>
+                                    <option value="Asia/Dubai">دبي</option>
+                                    <option value="Asia/Kuwait">الكويت</option>
+                                    <option value="Asia/Bahrain">البحرين</option>
+                                    <option value="Asia/Qatar">قطر</option>
+                                    <option value="Asia/Muscat">مسقط</option>
 
                                 </select>
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    {{-- يظهر عند إنشاء العميل فقط --}}
+                    <div class="creation-only">
+
+                        {{-- الاشتراك --}}
+                        <div class="tenant-form-section mb-4">
+
+                            <div class="tenant-form-section-title">
+                                بيانات الاشتراك الأول
+                            </div>
+
+
+                            <div class="row g-3">
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label">
+                                        الباقة
+                                        <span class="text-danger">*</span>
+                                    </label>
+
+                                    <select
+                                        name="plan_id"
+                                        id="tenantPlanId"
+                                        class="form-select"
+                                        required>
+
+                                        <option value="">
+                                            اختر الباقة
+                                        </option>
+
+                                        @foreach($plans as $plan)
+
+                                            <option
+                                                value="{{ $plan->id }}"
+                                                data-trial-days="{{ $plan->trial_days }}"
+                                                data-monthly-price="{{ $plan->monthly_price }}"
+                                                data-yearly-price="{{ $plan->yearly_price }}"
+                                                data-currency="{{ $plan->currency_code }}">
+
+                                                {{ $plan->name }}
+
+                                                -
+                                                {{ number_format($plan->monthly_price, 2) }}
+                                                {{ $plan->currency_code }}
+
+                                            </option>
+
+                                        @endforeach
+
+                                    </select>
+
+                                </div>
+
+
+                                <div class="col-md-3">
+
+                                    <label class="form-label">
+                                        دورة الفوترة
+                                    </label>
+
+                                    <select
+                                        name="billing_cycle"
+                                        id="tenantBillingCycle"
+                                        class="form-select"
+                                        required>
+
+                                        <option value="monthly">
+                                            شهري
+                                        </option>
+
+                                        <option value="yearly">
+                                            سنوي
+                                        </option>
+
+                                    </select>
+
+                                </div>
+
+
+                                <div class="col-md-3">
+
+                                    <label class="form-label">
+                                        تاريخ البداية
+                                    </label>
+
+                                    <input
+                                        type="date"
+                                        name="starts_at"
+                                        id="tenantStartsAt"
+                                        class="form-control"
+                                        value="{{ $defaultStartDate }}"
+                                        required>
+
+                                </div>
+
+
+                                <div class="col-md-6">
+
+                                    <input
+                                        type="hidden"
+                                        name="use_trial"
+                                        value="0">
+
+                                    <div class="form-check form-switch mt-2">
+
+                                        <input
+                                            type="checkbox"
+                                            name="use_trial"
+                                            id="tenantUseTrial"
+                                            class="form-check-input"
+                                            value="1">
+
+                                        <label
+                                            class="form-check-label"
+                                            for="tenantUseTrial"
+                                            id="tenantTrialLabel">
+
+                                            استخدام الفترة التجريبية
+
+                                        </label>
+
+                                    </div>
+
+                                </div>
+
+
+                                <div class="col-md-6">
+
+                                    <input
+                                        type="hidden"
+                                        name="auto_renew"
+                                        value="0">
+
+                                    <div class="form-check form-switch mt-2">
+
+                                        <input
+                                            type="checkbox"
+                                            name="auto_renew"
+                                            id="tenantAutoRenew"
+                                            class="form-check-input"
+                                            value="1"
+                                            checked>
+
+                                        <label
+                                            class="form-check-label"
+                                            for="tenantAutoRenew">
+
+                                            التجديد التلقائي
+
+                                        </label>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        </div>
+
+
+                        {{-- مدير العميل --}}
+                        <div class="tenant-form-section">
+
+                            <div class="tenant-form-section-title">
+                                مستخدم مدير العميل
+                            </div>
+
+
+                            <div class="row g-3">
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label">
+                                        اسم المدير
+                                        <span class="text-danger">*</span>
+                                    </label>
+
+                                    <input
+                                        type="text"
+                                        name="admin_name"
+                                        id="tenantAdminName"
+                                        class="form-control"
+                                        required>
+
+                                </div>
+
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label">
+                                        بريد تسجيل الدخول
+                                        <span class="text-danger">*</span>
+                                    </label>
+
+                                    <input
+                                        type="email"
+                                        name="admin_email"
+                                        id="tenantAdminEmail"
+                                        class="form-control"
+                                        dir="ltr"
+                                        autocomplete="off"
+                                        required>
+
+                                </div>
+
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label">
+                                        كلمة المرور
+                                        <span class="text-danger">*</span>
+                                    </label>
+
+                                    <input
+                                        type="password"
+                                        name="password"
+                                        id="tenantPassword"
+                                        class="form-control"
+                                        minlength="10"
+                                        autocomplete="new-password"
+                                        required>
+
+                                    <div class="form-text">
+                                        10 أحرف على الأقل وتحتوي على أحرف وأرقام.
+                                    </div>
+
+                                </div>
+
+
+                                <div class="col-md-6">
+
+                                    <label class="form-label">
+                                        تأكيد كلمة المرور
+                                        <span class="text-danger">*</span>
+                                    </label>
+
+                                    <input
+                                        type="password"
+                                        name="password_confirmation"
+                                        id="tenantPasswordConfirmation"
+                                        class="form-control"
+                                        minlength="10"
+                                        autocomplete="new-password"
+                                        required>
+
+                                </div>
 
                             </div>
 
@@ -514,17 +807,19 @@
 
                 <div class="modal-footer">
 
-                    <button type="button"
-                            class="btn btn-light"
-                            data-bs-dismiss="modal">
+                    <button
+                        type="button"
+                        class="btn btn-light"
+                        data-close-tenant-modal>
 
                         إلغاء
 
                     </button>
 
-                    <button type="submit"
-                            class="btn btn-primary px-4"
-                            id="btnSaveTenant">
+                    <button
+                        type="submit"
+                        class="btn btn-primary px-4"
+                        id="btnSaveTenant">
 
                         حفظ العميل
 
@@ -542,39 +837,40 @@
 
 @endsection
 
-
 @push('scripts')
 
+
 <script>
+$(function () {
 
-document.addEventListener('DOMContentLoaded', function () {
+    var currentPage = 1;
+    var editingTenantId = null;
+    var searchTimer = null;
 
-    const $ = window.jQuery;
-    const bootstrap = window.bootstrap;
-    const Swal = window.Swal;
+    var urls = {
+        data: @json(route('system.tenants.data')),
 
-    if (!$) {
-        console.error('jQuery is not loaded');
-        return;
-    }
+        store: @json(route('system.tenants.store')),
 
-    if (!bootstrap) {
-        console.error('Bootstrap JS is not loaded');
-        return;
-    }
+        show: @json(
+            route(
+                'system.tenants.show',
+                ['tenant' => '__TENANT__']
+            )
+        ),
 
-    
-    let currentPage = 1;
-    let searchTimer = null;
-
-    const tenantModal = bootstrap.Modal.getOrCreateInstance(
-        document.getElementById('tenantModal')
-    );
+        destroy: @json(
+            route(
+                'system.tenants.destroy',
+                ['tenant' => '__TENANT__']
+            )
+        )
+    };
 
 
     /*
     |--------------------------------------------------------------------------
-    | CSRF
+    | إعداد Ajax
     |--------------------------------------------------------------------------
     */
 
@@ -583,32 +879,283 @@ document.addEventListener('DOMContentLoaded', function () {
             'X-CSRF-TOKEN':
                 $('meta[name="csrf-token"]').attr('content'),
 
-            'Accept': 'application/json'
+            'Accept':
+                'application/json'
         }
     });
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Escape HTML
-    |--------------------------------------------------------------------------
-    */
+    function tenantUrl(
+        template,
+        tenantId
+    ) {
+        return template.replace(
+            '__TENANT__',
+            tenantId
+        );
+    }
 
-    function escapeHtml(value) {
+
+    function escapeHtml(value)
+    {
         return $('<div>')
-            .text(value ?? '')
+            .text(
+                value == null
+                    ? ''
+                    : value
+            )
             .html();
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Status
+    | فتح وإغلاق المودال باستخدام jQuery
     |--------------------------------------------------------------------------
     */
 
-    function statusBadge(status) {
+    function openTenantModal()
+    {
+        $('#tenantModal')
+            .css('display', 'block')
+            .addClass('show')
+            .attr(
+                'aria-modal',
+                'true'
+            )
+            .removeAttr(
+                'aria-hidden'
+            );
 
+        $('body')
+            .addClass('modal-open')
+            .css(
+                'overflow',
+                'hidden'
+            );
+
+        if (
+            !$('#tenantModalBackdrop').length
+        ) {
+            $('<div>', {
+                id:
+                    'tenantModalBackdrop',
+
+                class:
+                    'modal-backdrop fade show'
+            }).appendTo('body');
+        }
+    }
+
+
+    function closeTenantModal()
+    {
+        $('#tenantModal')
+            .removeClass('show')
+            .css(
+                'display',
+                'none'
+            )
+            .attr(
+                'aria-hidden',
+                'true'
+            )
+            .removeAttr(
+                'aria-modal'
+            );
+
+        $('#tenantModalBackdrop')
+            .remove();
+
+        $('body')
+            .removeClass('modal-open')
+            .css(
+                'overflow',
+                ''
+            );
+    }
+
+
+    $(document).on(
+        'click',
+        '[data-close-tenant-modal], #tenantModalBackdrop',
+        function () {
+            closeTenantModal();
+        }
+    );
+
+
+    $(document).on(
+        'keyup',
+        function (event) {
+
+            if (
+                event.key === 'Escape' &&
+                $('#tenantModal').hasClass('show')
+            ) {
+                closeTenantModal();
+            }
+
+        }
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | تنظيف النموذج
+    |--------------------------------------------------------------------------
+    */
+
+    function resetTenantForm()
+    {
+        $('#tenantForm')
+            .trigger('reset');
+
+        $('#tenantId')
+            .val('');
+
+        $('#tenantCode')
+            .prop(
+                'readonly',
+                false
+            )
+            .val('');
+
+        $('#tenantCountryCode')
+            .val('SA');
+
+        $('#tenantCurrencyCode')
+            .val('SAR');
+
+        $('#tenantLocale')
+            .val('ar');
+
+        $('#tenantTimezone')
+            .val('Asia/Riyadh');
+
+        $('#tenantStartsAt')
+            .val(
+                @json($defaultStartDate)
+            );
+
+        $('#tenantAutoRenew')
+            .prop(
+                'checked',
+                true
+            );
+
+        $('#tenantUseTrial')
+            .prop(
+                'checked',
+                false
+            )
+            .prop(
+                'disabled',
+                false
+            );
+
+        clearErrors();
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | أخطاء التحقق
+    |--------------------------------------------------------------------------
+    */
+
+    function clearErrors()
+    {
+        $('#tenantFormErrors')
+            .addClass('d-none')
+            .empty();
+
+        $('#tenantForm')
+            .find('.is-invalid')
+            .removeClass(
+                'is-invalid'
+            );
+    }
+
+
+    function displayErrors(errors)
+    {
+        var box =
+            $('#tenantFormErrors');
+
+        box.empty();
+
+        $.each(
+            errors,
+            function (
+                field,
+                messages
+            ) {
+                $('#tenantForm')
+                    .find(
+                        '[name="' +
+                        field +
+                        '"]'
+                    )
+                    .addClass(
+                        'is-invalid'
+                    );
+
+                $.each(
+                    messages,
+                    function (
+                        index,
+                        message
+                    ) {
+                        $('<div>')
+                            .text(message)
+                            .appendTo(box);
+                    }
+                );
+            }
+        );
+
+        box.removeClass(
+            'd-none'
+        );
+
+        $('#tenantModal .modal-body')
+            .stop(true)
+            .animate(
+                {
+                    scrollTop: 0
+                },
+                200
+            );
+    }
+
+
+    function showAjaxError(
+        xhr,
+        fallback
+    ) {
+        Swal.fire({
+            icon:
+                'error',
+
+            title:
+                'تعذر تنفيذ العملية',
+
+            text:
+                xhr.responseJSON?.message
+                ?? fallback
+        });
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | حالات العميل والاشتراك
+    |--------------------------------------------------------------------------
+    */
+
+    function tenantStatusBadge(status)
+    {
         if (status === 'active') {
             return `
                 <span class="badge bg-success-subtle text-success px-3 py-2">
@@ -633,369 +1180,496 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | Load Tenants
-    |--------------------------------------------------------------------------
-    */
+    function subscriptionBadge(status)
+    {
+        if (status === 'active') {
+            return `
+                <span class="badge bg-success-subtle text-success px-3 py-2">
+                    فعال
+                </span>
+            `;
+        }
 
-    function loadTenants(page = 1) {
+        if (status === 'trial') {
+            return `
+                <span class="badge bg-info-subtle text-info px-3 py-2">
+                    تجريبي
+                </span>
+            `;
+        }
 
-        currentPage = page;
+        if (status === 'suspended') {
+            return `
+                <span class="badge bg-warning-subtle text-warning px-3 py-2">
+                    معلق
+                </span>
+            `;
+        }
 
-        $('#tenantsTableBody').html(`
-            <tr>
-                <td colspan="7"
-                    class="text-center py-5 text-muted">
-                    جاري تحميل البيانات...
-                </td>
-            </tr>
-        `);
+        if (status === 'scheduled') {
+            return `
+                <span class="badge bg-primary-subtle text-primary px-3 py-2">
+                    مجدول
+                </span>
+            `;
+        }
 
-
-        $.ajax({
-
-            url: @json(route('system.tenants.data')),
-
-            type: 'GET',
-
-            data: {
-                page: page,
-                search: $('#tenantSearch').val(),
-                status: $('#tenantStatus').val(),
-                per_page: $('#perPage').val()
-            },
-
-            success: function (response) {
-
-                /*
-                 * إذا حذفنا آخر عنصر في الصفحة.
-                 */
-                if (
-                    response.data.length === 0 &&
-                    page > 1
-                ) {
-                    loadTenants(page - 1);
-                    return;
-                }
+        return `
+            <span class="badge bg-secondary-subtle text-secondary px-3 py-2">
+                لا يوجد
+            </span>
+        `;
+    }
 
 
-                renderTable(response);
-                renderPagination(response);
+    function dateText(value)
+    {
+        if (!value) {
+            return '-';
+        }
 
-                $('#totalTenants').text(
-                    response.total + ' عميل'
-                );
-            },
-
-            error: function () {
-
-                $('#tenantsTableBody').html(`
-                    <tr>
-                        <td colspan="7"
-                            class="text-center py-5 text-danger">
-
-                            تعذر تحميل بيانات العملاء.
-
-                        </td>
-                    </tr>
-                `);
-
-            }
-
-        });
-
+        return escapeHtml(
+            String(value)
+                .split('T')[0]
+                .split(' ')[0]
+        );
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Render Table
+    | تحميل العملاء
     |--------------------------------------------------------------------------
     */
 
-    function renderTable(response) {
+    function loadTenants(page)
+    {
+        currentPage =
+            page || 1;
 
-        if (!response.data.length) {
-
-            $('#tenantsTableBody').html(`
+        $('#tenantsTableBody')
+            .html(`
                 <tr>
-                    <td colspan="7"
-                        class="text-center py-5">
+                    <td
+                        colspan="9"
+                        class="text-center py-5 text-muted">
 
-                        <div class="text-muted">
-                            لا توجد بيانات مطابقة.
-                        </div>
+                        جاري تحميل البيانات...
 
                     </td>
                 </tr>
             `);
 
-            return;
-        }
 
+        $.ajax({
+            url:
+                urls.data,
 
-        let html = '';
+            type:
+                'GET',
 
-        response.data.forEach(function (tenant, index) {
+            data: {
+                page:
+                    currentPage,
 
-            const rowNumber =
-                (response.current_page - 1)
-                * response.per_page
-                + index
-                + 1;
+                search:
+                    $('#tenantSearch').val(),
 
+                status:
+                    $('#tenantStatusFilter').val(),
 
-            const contact = tenant.contact_name
-                ? escapeHtml(tenant.contact_name)
-                : '-';
+                per_page:
+                    $('#tenantPerPage').val()
+            },
 
+            success: function (response) {
 
-            const email = tenant.email
-                ? escapeHtml(tenant.email)
-                : '-';
+                if (
+                    response.data.length === 0 &&
+                    currentPage > 1
+                ) {
+                    loadTenants(
+                        currentPage - 1
+                    );
 
+                    return;
+                }
 
-            const phone = tenant.phone
-                ? escapeHtml(tenant.phone)
-                : '-';
+                renderTable(response);
+                renderPagination(response);
 
+                $('#totalTenants')
+                    .text(
+                        response.total +
+                        ' عميل'
+                    );
+            },
 
-            html += `
+            error: function (xhr) {
 
-                <tr>
+                $('#tenantsTableBody')
+                    .html(`
+                        <tr>
+                            <td
+                                colspan="9"
+                                class="text-center py-5 text-danger">
 
-                    <td class="text-center text-muted">
-                        ${rowNumber}
-                    </td>
+                                تعذر تحميل بيانات العملاء.
 
+                            </td>
+                        </tr>
+                    `);
 
-                    <td>
-                        <span class="fw-semibold"
-                              dir="ltr">
-
-                            ${escapeHtml(tenant.code)}
-
-                        </span>
-                    </td>
-
-
-                    <td>
-
-                        <div class="fw-semibold">
-                            ${escapeHtml(tenant.name)}
-                        </div>
-
-                        <small class="text-muted">
-                            ${escapeHtml(tenant.currency_code)}
-                        </small>
-
-                    </td>
-
-
-                    <td>
-                        ${contact}
-                    </td>
-
-
-                    <td>
-
-                        <div class="small">
-                            ${email}
-                        </div>
-
-                        <div class="small text-muted"
-                             dir="ltr">
-                            ${phone}
-                        </div>
-
-                    </td>
-
-
-                    <td class="text-center">
-                        ${statusBadge(tenant.status)}
-                    </td>
-
-
-                    <td class="text-center">
-
-                        <div class="btn-group btn-group-sm">
-
-                            <button type="button"
-                                    class="btn btn-light border btn-edit-tenant"
-                                    data-id="${tenant.id}">
-
-                                تعديل
-
-                            </button>
-
-
-                            <button type="button"
-                                    class="btn btn-light border text-danger btn-delete-tenant"
-                                    data-id="${tenant.id}"
-                                    data-name="${escapeHtml(tenant.name)}">
-
-                                حذف
-
-                            </button>
-
-                        </div>
-
-                    </td>
-
-                </tr>
-
-            `;
-
+                showAjaxError(
+                    xhr,
+                    'تعذر تحميل بيانات العملاء.'
+                );
+            }
         });
-
-
-        $('#tenantsTableBody').html(html);
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Pagination
+    | عرض الجدول
     |--------------------------------------------------------------------------
     */
 
-    function renderPagination(response) {
+    function renderTable(response)
+    {
+        if (!response.data.length) {
 
-        let html = '';
+            $('#tenantsTableBody')
+                .html(`
+                    <tr>
+                        <td
+                            colspan="9"
+                            class="text-center py-5 text-muted">
 
-        const current = response.current_page;
-        const last = response.last_page;
+                            لا توجد بيانات مطابقة.
+
+                        </td>
+                    </tr>
+                `);
+
+            return;
+        }
+
+
+        var html = '';
+
+
+        $.each(
+            response.data,
+            function (
+                index,
+                tenant
+            ) {
+                var rowNumber =
+                    (
+                        response.from || 1
+                    ) + index;
+
+
+                html += `
+
+                    <tr>
+
+                        <td class="text-center text-muted">
+                            ${rowNumber}
+                        </td>
+
+
+                        <td dir="ltr">
+                            ${escapeHtml(tenant.code)}
+                        </td>
+
+
+                        <td>
+
+                            <div class="fw-semibold">
+                                ${escapeHtml(tenant.name)}
+                            </div>
+
+                            <small class="text-muted">
+                                ${escapeHtml(tenant.contact_name || '')}
+                            </small>
+
+                        </td>
+
+
+                        <td>
+                            ${escapeHtml(tenant.plan_name || '-')}
+                        </td>
+
+
+                        <td class="text-center">
+                            ${escapeHtml(tenant.users_count || 0)}
+                        </td>
+
+
+                        <td class="text-center">
+                            ${subscriptionBadge(tenant.subscription_status)}
+                        </td>
+
+
+                        <td dir="ltr">
+                            ${dateText(tenant.ends_at)}
+                        </td>
+
+
+                        <td class="text-center">
+                            ${tenantStatusBadge(tenant.status)}
+                        </td>
+
+
+                        <td class="text-center">
+
+                            <div class="btn-group btn-group-sm">
+
+                                <button
+                                    type="button"
+                                    class="btn btn-light border btn-edit-tenant"
+                                    data-id="${tenant.id}">
+
+                                    تعديل
+
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="btn btn-light border text-danger btn-delete-tenant"
+                                    data-id="${tenant.id}"
+                                    data-name="${escapeHtml(tenant.name)}">
+
+                                    أرشفة
+
+                                </button>
+
+                            </div>
+
+                        </td>
+
+                    </tr>
+
+                `;
+            }
+        );
+
+
+        $('#tenantsTableBody')
+            .html(html);
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | الصفحات
+    |--------------------------------------------------------------------------
+    */
+
+    function renderPagination(response)
+    {
+        var html = '';
+
+        var current =
+            response.current_page;
+
+        var last =
+            response.last_page;
 
 
         if (last > 1) {
 
             html += `
-
                 <li class="page-item ${current === 1 ? 'disabled' : ''}">
 
-                    <button type="button"
-                            class="page-link page-button"
-                            data-page="${current - 1}">
+                    <button
+                        type="button"
+                        class="page-link page-button"
+                        data-page="${current - 1}">
 
                         السابق
 
                     </button>
 
                 </li>
-
             `;
 
 
-            let start = Math.max(1, current - 2);
-            let end = Math.min(last, current + 2);
+            var start =
+                Math.max(
+                    1,
+                    current - 2
+                );
+
+            var end =
+                Math.min(
+                    last,
+                    current + 2
+                );
 
 
-            for (let page = start; page <= end; page++) {
-
+            for (
+                var page = start;
+                page <= end;
+                page++
+            ) {
                 html += `
-
                     <li class="page-item ${page === current ? 'active' : ''}">
 
-                        <button type="button"
-                                class="page-link page-button"
-                                data-page="${page}">
+                        <button
+                            type="button"
+                            class="page-link page-button"
+                            data-page="${page}">
 
                             ${page}
 
                         </button>
 
                     </li>
-
                 `;
-
             }
 
 
             html += `
-
                 <li class="page-item ${current === last ? 'disabled' : ''}">
 
-                    <button type="button"
-                            class="page-link page-button"
-                            data-page="${current + 1}">
+                    <button
+                        type="button"
+                        class="page-link page-button"
+                        data-page="${current + 1}">
 
                         التالي
 
                     </button>
 
                 </li>
-
             `;
-
         }
 
 
-        $('#pagination').html(html);
+        $('#pagination')
+            .html(html);
 
 
         if (response.total > 0) {
 
-            $('#paginationInfo').text(
-
-                'عرض '
-                + response.from
-                + ' إلى '
-                + response.to
-                + ' من '
-                + response.total
-
-            );
+            $('#paginationInfo')
+                .text(
+                    'عرض ' +
+                    response.from +
+                    ' إلى ' +
+                    response.to +
+                    ' من ' +
+                    response.total
+                );
 
         } else {
 
-            $('#paginationInfo').text(
-                'لا توجد سجلات'
-            );
+            $('#paginationInfo')
+                .text(
+                    'لا توجد سجلات'
+                );
 
         }
-
     }
 
 
     /*
     |--------------------------------------------------------------------------
-    | Add Tenant
+    | إضافة عميل
     |--------------------------------------------------------------------------
     */
 
-    $('#btnAddTenant').on('click', function () {
+    $('#btnAddTenant').on(
+        'click',
+        function () {
 
-        $('#tenantForm')[0].reset();
+            editingTenantId =
+                null;
 
-        $('#tenantId').val('');
+            resetTenantForm();
 
-        $('#code')
-            .prop('disabled', false)
-            .val('');
+            $('#tenantModalTitle')
+                .text(
+                    'إضافة عميل جديد'
+                );
 
-        $('#status').val('active');
-        $('#country_code').val('SA');
-        $('#currency_code').val('SAR');
-        $('#locale').val('ar');
-        $('#timezone').val('Asia/Riyadh');
+            $('#btnSaveTenant')
+                .text(
+                    'إنشاء العميل والحساب والاشتراك'
+                );
 
-        $('#tenantModalTitle').text(
-            'إضافة عميل جديد'
-        );
+            $('.creation-only')
+                .removeClass('d-none')
+                .find(':input')
+                .prop(
+                    'disabled',
+                    false
+                );
 
-        $('#btnSaveTenant').text(
-            'حفظ العميل'
-        );
+            $('.editing-only')
+                .addClass('d-none')
+                .find(':input')
+                .prop(
+                    'disabled',
+                    true
+                );
 
-        tenantModal.show();
-
-    });
+            openTenantModal();
+        }
+    );
 
 
     /*
     |--------------------------------------------------------------------------
-    | Edit Tenant
+    | تغيير الباقة
+    |--------------------------------------------------------------------------
+    */
+
+    $('#tenantPlanId').on(
+        'change',
+        function () {
+
+            var trialDays =
+                Number(
+                    $(this)
+                        .find(
+                            'option:selected'
+                        )
+                        .data(
+                            'trial-days'
+                        ) || 0
+                );
+
+
+            $('#tenantUseTrial')
+                .prop(
+                    'disabled',
+                    trialDays < 1
+                )
+                .prop(
+                    'checked',
+                    false
+                );
+
+
+            $('#tenantTrialLabel')
+                .text(
+                    trialDays > 0
+                        ? 'بدء فترة تجريبية لمدة ' +
+                            trialDays +
+                            ' يوم'
+                        : 'الباقة لا تحتوي على فترة تجريبية'
+                );
+        }
+    );
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | تعديل العميل
     |--------------------------------------------------------------------------
     */
 
@@ -1004,80 +1678,142 @@ document.addEventListener('DOMContentLoaded', function () {
         '.btn-edit-tenant',
         function () {
 
-            const id = $(this).data('id');
+            var id =
+                $(this).data('id');
 
-            const url =
-                @json(route('system.tenants.show', ['tenant' => '__ID__']))
-                    .replace('__ID__', id);
+
+            clearErrors();
 
 
             $.ajax({
+                url:
+                    tenantUrl(
+                        urls.show,
+                        id
+                    ),
 
-                url: url,
-
-                type: 'GET',
+                type:
+                    'GET',
 
                 success: function (response) {
 
-                    const tenant = response.tenant;
-
-                    $('#tenantId').val(tenant.id);
-
-                    $('#code')
-                        .val(tenant.code)
-                        .prop('disabled', true);
-
-                    $('#name').val(tenant.name);
-                    $('#contact_name').val(tenant.contact_name);
-                    $('#email').val(tenant.email);
-                    $('#phone').val(tenant.phone);
-
-                    $('#status').val(tenant.status);
-
-                    $('#country_code')
-                        .val(tenant.country_code);
-
-                    $('#currency_code')
-                        .val(tenant.currency_code);
-
-                    $('#locale')
-                        .val(tenant.locale);
-
-                    $('#timezone')
-                        .val(tenant.timezone);
+                    var tenant =
+                        response.tenant;
 
 
-                    $('#tenantModalTitle').text(
-                        'تعديل بيانات العميل'
-                    );
+                    editingTenantId =
+                        id;
 
-                    $('#btnSaveTenant').text(
-                        'حفظ التعديلات'
-                    );
 
-                    tenantModal.show();
+                    resetTenantForm();
 
+
+                    $('#tenantId')
+                        .val(
+                            tenant.id
+                        );
+
+                    $('#tenantCode')
+                        .val(
+                            tenant.code || ''
+                        )
+                        .prop(
+                            'readonly',
+                            true
+                        );
+
+                    $('#tenantName')
+                        .val(
+                            tenant.name || ''
+                        );
+
+                    $('#tenantContactName')
+                        .val(
+                            tenant.contact_name || ''
+                        );
+
+                    $('#tenantEmail')
+                        .val(
+                            tenant.email || ''
+                        );
+
+                    $('#tenantPhone')
+                        .val(
+                            tenant.phone || ''
+                        );
+
+                    $('#tenantCountryCode')
+                        .val(
+                            tenant.country_code || 'SA'
+                        );
+
+                    $('#tenantCurrencyCode')
+                        .val(
+                            tenant.currency_code || 'SAR'
+                        );
+
+                    $('#tenantLocale')
+                        .val(
+                            tenant.locale || 'ar'
+                        );
+
+                    $('#tenantTimezone')
+                        .val(
+                            tenant.timezone || 'Asia/Riyadh'
+                        );
+
+                    $('#tenantStatus')
+                        .val(
+                            tenant.status || 'active'
+                        );
+
+
+                    $('#tenantModalTitle')
+                        .text(
+                            'تعديل بيانات العميل'
+                        );
+
+                    $('#btnSaveTenant')
+                        .text(
+                            'حفظ التعديلات'
+                        );
+
+
+                    $('.creation-only')
+                        .addClass('d-none')
+                        .find(':input')
+                        .prop(
+                            'disabled',
+                            true
+                        );
+
+                    $('.editing-only')
+                        .removeClass('d-none')
+                        .find(':input')
+                        .prop(
+                            'disabled',
+                            false
+                        );
+
+
+                    openTenantModal();
                 },
 
-                error: function () {
+                error: function (xhr) {
 
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'خطأ',
-                        text: 'تعذر تحميل بيانات العميل.'
-                    });
-
+                    showAjaxError(
+                        xhr,
+                        'تعذر تحميل بيانات العميل.'
+                    );
                 }
-
             });
-
         }
     );
 
 
     /*
     |--------------------------------------------------------------------------
-    | Save
+    | حفظ العميل
     |--------------------------------------------------------------------------
     */
 
@@ -1087,86 +1823,180 @@ document.addEventListener('DOMContentLoaded', function () {
 
             event.preventDefault();
 
-
-            const id = $('#tenantId').val();
-
-            let url;
-            let method;
+            clearErrors();
 
 
-            if (id) {
+            var isCreating =
+                !editingTenantId;
 
-                url =
-                    @json(route('system.tenants.update', ['tenant' => '__ID__']))
-                        .replace('__ID__', id);
 
-                method = 'PUT';
+            var url =
+                isCreating
+                    ? urls.store
+                    : tenantUrl(
+                        urls.show,
+                        editingTenantId
+                    );
 
-            } else {
 
-                url = @json(route('system.tenants.store'));
+            var data =
+                $(this).serialize();
 
-                method = 'POST';
 
+            if (!isCreating) {
+                data += '&_method=PUT';
             }
 
 
-            const button = $('#btnSaveTenant');
+            var button =
+                $('#btnSaveTenant');
 
-            const originalText = button.text();
+
+            var originalText =
+                button.text();
+
 
             button
-                .prop('disabled', true)
-                .text('جاري الحفظ...');
+                .prop(
+                    'disabled',
+                    true
+                )
+                .text(
+                    'جاري الحفظ...'
+                );
 
 
             $.ajax({
+                url:
+                    url,
 
-                url: url,
+                type:
+                    'POST',
 
-                type: method,
-
-                data: $('#tenantForm').serialize(),
+                data:
+                    data,
 
                 success: function (response) {
 
-                    tenantModal.hide();
+                    closeTenantModal();
 
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'تم بنجاح',
-                        text: response.message,
-                        timer: 1800,
-                        showConfirmButton: false
-                    });
+                    loadTenants(
+                        isCreating
+                            ? 1
+                            : currentPage
+                    );
 
-                    loadTenants(currentPage);
 
+                    if (
+                        isCreating &&
+                        response.owner
+                    ) {
+                        Swal.fire({
+                            icon:
+                                'success',
+
+                            title:
+                                'تم إنشاء حساب العميل',
+
+                            html:
+                                '<div class="text-end">' +
+
+                                '<div class="mb-3">' +
+                                escapeHtml(
+                                    response.message
+                                ) +
+                                '</div>' +
+
+                                '<div>' +
+                                '<strong>بريد الدخول:</strong> ' +
+                                '<span dir="ltr">' +
+                                escapeHtml(
+                                    response.owner.email
+                                ) +
+                                '</span>' +
+                                '</div>' +
+
+                                '<div class="mt-2">' +
+                                '<strong>رابط الدخول:</strong> ' +
+                                '<a href="' +
+                                escapeHtml(
+                                    response.login_url
+                                ) +
+                                '" target="_blank">' +
+                                'فتح صفحة الدخول' +
+                                '</a>' +
+                                '</div>' +
+
+                                '<div class="small text-muted mt-3">' +
+                                'كلمة المرور هي التي أدخلتها في النموذج.' +
+                                '</div>' +
+
+                                '</div>',
+
+                            confirmButtonText:
+                                'حسنًا'
+                        });
+
+                    } else {
+
+                        Swal.fire({
+                            icon:
+                                'success',
+
+                            title:
+                                'تم',
+
+                            text:
+                                response.message,
+
+                            timer:
+                                1800,
+
+                            showConfirmButton:
+                                false
+                        });
+
+                    }
                 },
 
                 error: function (xhr) {
 
-                    showAjaxError(xhr);
+                    if (
+                        xhr.status === 422 &&
+                        xhr.responseJSON?.errors
+                    ) {
+                        displayErrors(
+                            xhr.responseJSON.errors
+                        );
 
+                        return;
+                    }
+
+                    showAjaxError(
+                        xhr,
+                        'حدث خطأ أثناء حفظ البيانات.'
+                    );
                 },
 
                 complete: function () {
 
                     button
-                        .prop('disabled', false)
-                        .text(originalText);
-
+                        .prop(
+                            'disabled',
+                            false
+                        )
+                        .text(
+                            originalText
+                        );
                 }
-
             });
-
         }
     );
 
 
     /*
     |--------------------------------------------------------------------------
-    | Delete
+    | أرشفة العميل
     |--------------------------------------------------------------------------
     */
 
@@ -1175,28 +2005,37 @@ document.addEventListener('DOMContentLoaded', function () {
         '.btn-delete-tenant',
         function () {
 
-            const id = $(this).data('id');
-            const name = $(this).data('name');
+            var id =
+                $(this).data('id');
+
+            var name =
+                $(this).data('name');
 
 
             Swal.fire({
+                icon:
+                    'warning',
 
-                icon: 'warning',
-
-                title: 'حذف العميل؟',
+                title:
+                    'أرشفة العميل؟',
 
                 html:
-                    'هل أنت متأكد من حذف العميل<br><strong>'
-                    + name
-                    + '</strong>؟',
+                    'هل أنت متأكد من أرشفة العميل؟' +
+                    '<br><strong>' +
+                    escapeHtml(name) +
+                    '</strong>',
 
-                showCancelButton: true,
+                showCancelButton:
+                    true,
 
-                confirmButtonText: 'نعم، حذف',
+                confirmButtonText:
+                    'نعم، أرشفة',
 
-                cancelButtonText: 'إلغاء',
+                cancelButtonText:
+                    'إلغاء',
 
-                confirmButtonColor: '#dc3545'
+                confirmButtonColor:
+                    '#dc3545'
 
             }).then(function (result) {
 
@@ -1205,65 +2044,93 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
 
-                const url =
-                    @json(route('system.tenants.destroy', ['tenant' => '__ID__']))
-                        .replace('__ID__', id);
-
-
                 $.ajax({
+                    url:
+                        tenantUrl(
+                            urls.destroy,
+                            id
+                        ),
 
-                    url: url,
-
-                    type: 'DELETE',
+                    type:
+                        'DELETE',
 
                     success: function (response) {
 
+                        loadTenants(
+                            currentPage
+                        );
+
                         Swal.fire({
-                            icon: 'success',
-                            title: 'تم الحذف',
-                            text: response.message,
-                            timer: 1500,
-                            showConfirmButton: false
+                            icon:
+                                'success',
+
+                            title:
+                                'تم',
+
+                            text:
+                                response.message,
+
+                            timer:
+                                1500,
+
+                            showConfirmButton:
+                                false
                         });
-
-                        loadTenants(currentPage);
-
                     },
 
                     error: function (xhr) {
 
-                        showAjaxError(xhr);
-
+                        showAjaxError(
+                            xhr,
+                            'تعذر أرشفة العميل.'
+                        );
                     }
-
                 });
-
             });
-
         }
     );
 
 
     /*
     |--------------------------------------------------------------------------
-    | Search
+    | البحث
     |--------------------------------------------------------------------------
     */
 
-    $('#tenantSearch').on('input', function () {
+    $('#tenantSearchForm').on(
+        'submit',
+        function (event) {
 
-        clearTimeout(searchTimer);
+            event.preventDefault();
 
-        searchTimer = setTimeout(function () {
             loadTenants(1);
-        }, 350);
+        }
+    );
 
-    });
+
+    $('#tenantSearch').on(
+        'input',
+        function () {
+
+            clearTimeout(
+                searchTimer
+            );
+
+            searchTimer =
+                setTimeout(
+                    function () {
+                        loadTenants(1);
+                    },
+                    350
+                );
+        }
+    );
 
 
-    $('#tenantStatus, #perPage').on(
+    $('#tenantStatusFilter, #tenantPerPage').on(
         'change',
         function () {
+
             loadTenants(1);
         }
     );
@@ -1273,19 +2140,23 @@ document.addEventListener('DOMContentLoaded', function () {
         'click',
         function () {
 
-            $('#tenantSearch').val('');
-            $('#tenantStatus').val('');
-            $('#perPage').val('15');
+            $('#tenantSearch')
+                .val('');
+
+            $('#tenantStatusFilter')
+                .val('');
+
+            $('#tenantPerPage')
+                .val('15');
 
             loadTenants(1);
-
         }
     );
 
 
     /*
     |--------------------------------------------------------------------------
-    | Pagination Click
+    | التنقل بين الصفحات
     |--------------------------------------------------------------------------
     */
 
@@ -1303,70 +2174,23 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             loadTenants(
-                $(this).data('page')
+                Number(
+                    $(this).data('page')
+                )
             );
-
         }
     );
 
 
     /*
     |--------------------------------------------------------------------------
-    | Ajax Errors
+    | التحميل الأول
     |--------------------------------------------------------------------------
     */
 
-    function showAjaxError(xhr) {
-
-        if (
-            xhr.status === 401 ||
-            xhr.status === 419
-        ) {
-            window.location.reload();
-            return;
-        }
-
-
-        let message =
-            xhr.responseJSON?.message
-            ?? 'حدث خطأ غير متوقع.';
-
-
-        const errors =
-            xhr.responseJSON?.errors;
-
-
-        if (errors) {
-
-            const firstError =
-                Object.values(errors)[0];
-
-            if (firstError?.length) {
-                message = firstError[0];
-            }
-
-        }
-
-
-        Swal.fire({
-            icon: 'error',
-            title: 'تعذر تنفيذ العملية',
-            text: message
-        });
-
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | Initial Load
-    |--------------------------------------------------------------------------
-    */
-
-    loadTenants();
+    loadTenants(1);
 
 });
-
 </script>
 
 @endpush

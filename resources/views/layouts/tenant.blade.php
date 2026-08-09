@@ -306,6 +306,11 @@
     </style>
 
 </head>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+
+
+@stack('scripts')
 
 <body>
 
@@ -428,6 +433,20 @@
             >
                 <i class="bi bi-people"></i>
                 <span>المستخدمون</span>
+            </a>
+
+        @endcan
+
+
+        @can('roles.view')
+
+            <a
+                href="{{ route('app.roles.index') }}"
+                class="sidebar-link
+                    {{ request()->routeIs('app.roles.*') ? 'active' : '' }}"
+            >
+                <i class="bi bi-shield-lock"></i>
+                <span>الأدوار والصلاحيات</span>
             </a>
 
         @endcan
