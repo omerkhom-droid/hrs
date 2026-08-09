@@ -31,23 +31,19 @@ php artisan migrate --seed
 npm install
 npm run build
 php artisan serve
+```
 
+## أوامر الإدارة
 
-أوامر الإدارة
+```bash
 php artisan saas:create-platform-admin
 php artisan saas:create-tenant-user
 php artisan saas:assign-tenant-owner
 php artisan saas:subscriptions:process
+```
 
-
-
-
-### 4. افحص المشروع
+## الجدولة المحلية
 
 ```bash
-php artisan optimize:clear
-php artisan route:list
-php artisan test
-git diff --check
-git grep -n "<<<<<<<"
-git grep -n ">>>>>>>"
+php artisan schedule:work
+```
