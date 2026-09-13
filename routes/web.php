@@ -14,6 +14,7 @@ use App\Http\Controllers\Tenant\DepartmentController;
 use App\Http\Controllers\Tenant\JobTitleController;
 use App\Http\Controllers\Tenant\WorkLocationController;
 
+
 use App\Http\Controllers\Tenant\RoleController as TenantRoleController;
 use App\Http\Controllers\Tenant\UserController as TenantUserController;
 use Illuminate\Support\Facades\Route;
@@ -35,7 +36,7 @@ Route::get('/', function () {
         return redirect()->route('app.dashboard');
     }
 
-    return redirect()->route('system.login');
+    return redirect()->route('app.login');
 });
 
 /*
@@ -160,7 +161,9 @@ Route::prefix('app')
                         require __DIR__ . '/tenant-contracts.php';
                         require __DIR__ . '/tenant-documents.php';
                         require __DIR__ . '/tenant-attendance.php';
-                        
+                        require __DIR__ . '/tenant-leaves.php';
+                        require __DIR__ . '/tenant-holidays.php';
+                        require __DIR__ . '/tenant-payroll.php';
                         
                         /* Tenant Users */
                         Route::prefix('users')

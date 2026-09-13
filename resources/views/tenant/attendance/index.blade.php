@@ -188,14 +188,37 @@
         class="d-flex justify-content-between align-items-center p-3 border-bottom"
       >
         <h6 class="mb-0">سجلات الدوام</h6>
-        <span class="badge bg-primary-subtle text-primary" id="attendanceCount"
-          >0 سجل</span
-        >
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          @can('attendance.approve')
+            <button
+              type="button"
+              class="btn btn-sm btn-success"
+              id="btnBulkApprove"
+              disabled
+            >
+              اعتماد المحدد
+              <span class="badge bg-white text-success" id="selectedAttendanceCount">0</span>
+            </button>
+          @endcan
+          <span class="badge bg-primary-subtle text-primary" id="attendanceCount"
+            >0 سجل</span
+          >
+        </div>
       </div>
       <div class="table-responsive">
         <table class="table table-hover mb-0">
           <thead>
             <tr>
+              <th class="text-center">
+                @can('attendance.approve')
+                  <input
+                    type="checkbox"
+                    class="form-check-input"
+                    id="selectAllAttendance"
+                    title="تحديد كل السجلات القابلة للاعتماد"
+                  />
+                @endcan
+              </th>
               <th>#</th>
               <th>الموظف</th>
               <th>التاريخ</th>
@@ -210,7 +233,7 @@
           </thead>
           <tbody id="attendanceTableBody">
             <tr>
-              <td colspan="10" class="att-loading">جاري تحميل البيانات...</td>
+              <td colspan="11" class="att-loading">جاري تحميل البيانات...</td>
             </tr>
           </tbody>
         </table>
@@ -430,6 +453,7 @@
         show: @json(route('app.attendance.show', ['record' => '__ID__'])),
         update: @json(route('app.attendance.update', ['record' => '__ID__'])),
         approve: @json(route('app.attendance.approve', ['record' => '__ID__'])),
+        bulkApprove: @json(route('app.attendance.bulk-approve')),
         reopen: @json(route('app.attendance.reopen', ['record' => '__ID__'])),
         destroy: @json(route('app.attendance.destroy', ['record' => '__ID__'])),
       };
@@ -550,13 +574,69 @@
             : item.approval_status === "rejected"
               ? "att-danger"
               : "att-warning";
+        let note = "";
+
+        if (
+          item.approval_status === "approved" &&
+          item.approval_source === "system"
+        ) {
+          note = '<div class="att-meta text-success">اعتماد تلقائي</div>';
+        } else if (
+          item.approval_status === "pending" &&
+          Array.isArray(item.approval_review_reasons) &&
+          item.approval_review_reasons.length
+        ) {
+          note =
+            '<div class="att-meta text-warning" title="' +
+            escapeHtml(item.approval_review_reasons.join("، ")) +
+            '">' +
+            escapeHtml(item.approval_review_reasons[0]) +
+            (item.approval_review_reasons.length > 1
+              ? " +" + (item.approval_review_reasons.length - 1)
+              : "") +
+            "</div>";
+        }
+
         return (
           '<span class="att-badge ' +
           cls +
           '">' +
           escapeHtml(item.approval_status_label) +
-          "</span>"
+          "</span>" +
+          note
         );
+      }
+
+      function selectionCell(item) {
+        if (!permissions.approve || !item.can_bulk_approve) {
+          return '<td class="text-center">—</td>';
+        }
+
+        return (
+          '<td class="text-center"><input type="checkbox" ' +
+          'class="form-check-input js-att-select" value="' +
+          item.id +
+          '" aria-label="تحديد السجل للاعتماد"></td>'
+        );
+      }
+
+      function selectedRecordIds() {
+        return $(".js-att-select:checked")
+          .map(function () {
+            return Number($(this).val());
+          })
+          .get();
+      }
+
+      function updateSelectionState() {
+        const total = $(".js-att-select").length;
+        const selected = selectedRecordIds().length;
+
+        $("#selectedAttendanceCount").text(selected);
+        $("#btnBulkApprove").prop("disabled", selected === 0);
+        $("#selectAllAttendance")
+          .prop("checked", total > 0 && selected === total)
+          .prop("indeterminate", selected > 0 && selected < total);
       }
 
       function actions(item) {
@@ -596,15 +676,17 @@
       function renderRows(items, from) {
         if (!items.length) {
           $("#attendanceTableBody").html(
-            '<tr><td colspan="10"><div class="att-empty"><div class="fs-2 mb-2">◷</div><div class="fw-bold">لا توجد سجلات حضور</div></div></td></tr>',
+            '<tr><td colspan="11"><div class="att-empty"><div class="fs-2 mb-2">◷</div><div class="fw-bold">لا توجد سجلات حضور</div></div></td></tr>',
           );
+          updateSelectionState();
           return;
         }
         let html = "";
         items.forEach(function (item, index) {
           const employee = item.employee || {};
           const shift = item.shift || {};
-          html += "<tr><td>" + (Number(from || 1) + index) + "</td>";
+          html += "<tr>" + selectionCell(item);
+          html += "<td>" + (Number(from || 1) + index) + "</td>";
           html +=
             '<td><div class="employee-name">' +
             valueOrDash(employee.name) +
@@ -639,8 +721,13 @@
             escapeHtml(item.work_duration_label) +
             "</div>" +
             (item.overtime_minutes
-              ? '<div class="att-meta text-success">إضافي ' +
+              ? '<div class="att-meta text-warning">إضافي فعلي ' +
                 minutesText(item.overtime_minutes) +
+                "</div>"
+              : "") +
+            (item.approved_overtime_minutes
+              ? '<div class="att-meta text-success">معتمد ' +
+                minutesText(item.approved_overtime_minutes) +
                 "</div>"
               : "") +
             "</td>";
@@ -652,6 +739,7 @@
             "</td></tr>";
         });
         $("#attendanceTableBody").html(html);
+        updateSelectionState();
       }
 
       function renderPagination(response) {
@@ -696,7 +784,7 @@
       function loadRecords(page) {
         state.page = page || 1;
         $("#attendanceTableBody").html(
-          '<tr><td colspan="10" class="att-loading">جاري تحميل البيانات...</td></tr>',
+          '<tr><td colspan="11" class="att-loading">جاري تحميل البيانات...</td></tr>',
         );
         $.ajax({
           url: urls.data,
@@ -731,7 +819,7 @@
           },
           error: function (xhr) {
             $("#attendanceTableBody").html(
-              '<tr><td colspan="10" class="att-loading text-danger">' +
+              '<tr><td colspan="11" class="att-loading text-danger">' +
                 escapeHtml(message(xhr)) +
                 "</td></tr>",
             );
@@ -896,7 +984,19 @@
           html += detail("العمل الإضافي", minutesText(item.overtime_minutes));
           html += detail("موقع العمل", valueOrDash(location.name));
           html += detail("الاعتماد", valueOrDash(item.approval_status_label));
-          html += detail("اعتمد بواسطة", valueOrDash(approver.name));
+          html += detail(
+            "اعتمد بواسطة",
+            item.approval_source === "system"
+              ? "النظام"
+              : valueOrDash(approver.name),
+          );
+          html += detail(
+            "أسباب المراجعة",
+            Array.isArray(item.approval_review_reasons) &&
+              item.approval_review_reasons.length
+              ? escapeHtml(item.approval_review_reasons.join("، "))
+              : "—",
+          );
           html += detail("أنشئ بواسطة", valueOrDash(creator.name));
           html +=
             '<div class="col-12"><div class="att-detail"><div class="att-detail-label">الملاحظات</div><div class="att-detail-value">' +
@@ -918,10 +1018,11 @@
         showModal("#attendanceConfirmModal");
       }
 
-      function postAction(url, method) {
+      function postAction(url, method, data) {
         $.ajax({
           url: url,
           type: method || "POST",
+          data: data || {},
           success: function (response) {
             hideModal("#attendanceConfirmModal");
             toast(response.message || "تم تنفيذ الإجراء.", "success");
@@ -959,6 +1060,27 @@
       $(document).on("click", ".js-att-page", function () {
         const page = Number($(this).data("page"));
         if (page > 0) loadRecords(page);
+      });
+      $(document).on("change", ".js-att-select", updateSelectionState);
+      $("#selectAllAttendance").on("change", function () {
+        $(".js-att-select").prop("checked", $(this).prop("checked"));
+        updateSelectionState();
+      });
+      $("#btnBulkApprove").on("click", function () {
+        const ids = selectedRecordIds();
+
+        if (!ids.length) return;
+
+        confirmAction(
+          "اعتماد السجلات المحددة",
+          "سيتم اعتماد " + ids.length + " سجل ومنع تعديلها حتى إلغاء الاعتماد.",
+          "btn-success",
+          function () {
+            postAction(urls.bulkApprove, "POST", {
+              record_ids: ids,
+            });
+          },
+        );
       });
       $(document).on("click", ".js-att-details", function () {
         openDetails($(this).data("id"));

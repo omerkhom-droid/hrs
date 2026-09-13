@@ -49,8 +49,32 @@ class UpdateAttendancePolicyRequest extends FormRequest
             'allow_outside_geofence' => ['required', 'boolean'],
             'require_photo' => ['required', 'boolean'],
             'auto_check_out' => ['required', 'boolean'],
+            'auto_check_out_after_minutes' => [
+                'required',
+                'integer',
+                'between:0,1440',
+            ],
+            'approval_mode' => [
+                'required',
+                Rule::in(['manual', 'auto_clean']),
+            ],
+            'max_location_accuracy' => [
+                'required',
+                'integer',
+                'between:10,500',
+            ],
             'weekend_days' => ['required', 'array'],
             'weekend_days.*' => ['integer', 'between:0,6'],
+        ];
+    }
+
+    public function attributes(): array
+    {
+        return [
+            'auto_check_out_after_minutes' =>
+                'مدة انتظار الانصراف التلقائي',
+            'approval_mode' => 'طريقة اعتماد الحضور',
+            'max_location_accuracy' => 'أقصى دقة مسموحة للموقع',
         ];
     }
 }

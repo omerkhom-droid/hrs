@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -171,6 +172,22 @@ class Employee extends Model
             ->orderBy('family_name');
     }
 
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(
+            EmployeeContract::class
+        )->orderByDesc('start_date');
+    }
+
+    public function activeContract(): HasOne
+    {
+        return $this->hasOne(
+            EmployeeContract::class
+        )
+            ->where('status', 'active')
+            ->latestOfMany('start_date');
+    }
+
     public function documents(): HasMany
     {
         return $this->hasMany(
@@ -192,7 +209,184 @@ class Employee extends Model
         )->orderByDesc('attendance_date');
     }
 
+    public function overtimeRequests(): HasMany
+    {
+        return $this->hasMany(
+            OvertimeRequest::class
+        )->orderByDesc('overtime_date');
+    }
+
+    public function mobileDevices(): HasMany
+    {
+        return $this->hasMany(
+            EmployeeMobileDevice::class
+        )->orderByDesc('last_seen_at');
+    }
+
+
+    public function bankAccounts(): HasMany
+    {
+        return $this->hasMany(
+            EmployeeBankAccount::class
+        )->latest('id');
+    }
+
+
+    public function primaryBankAccount(): HasOne
+    {
+        return $this->hasOne(
+            EmployeeBankAccount::class
+        )
+            ->where('is_primary', true)
+            ->where('is_active', true)
+            ->latestOfMany();
+    }
     
+    public function payrollPaymentBatchItems(): HasMany
+    {
+        return $this->hasMany(
+            PayrollPaymentBatchItem::class
+        );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Leave Management Relationships
+    |--------------------------------------------------------------------------
+    */
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(
+            LeaveRequest::class,
+            'employee_id'
+        )->latest('start_date');
+    }
+
+    public function pendingLeaveRequests(): HasMany
+    {
+        return $this->hasMany(
+            LeaveRequest::class,
+            'employee_id'
+        )->where(
+            'status',
+            LeaveRequest::STATUS_PENDING
+        )->latest('requested_at');
+    }
+
+    public function approvedLeaveRequests(): HasMany
+    {
+        return $this->hasMany(
+            LeaveRequest::class,
+            'employee_id'
+        )->where(
+            'status',
+            LeaveRequest::STATUS_APPROVED
+        )->latest('start_date');
+    }
+
+    public function replacementLeaveRequests(): HasMany
+    {
+        return $this->hasMany(
+            LeaveRequest::class,
+            'replacement_employee_id'
+        )->latest('start_date');
+    }
+
+    public function leaveBalances(): HasMany
+    {
+        return $this->hasMany(
+            LeaveBalance::class,
+            'employee_id'
+        )->orderByDesc('year');
+    }
+
+    public function currentYearLeaveBalances(): HasMany
+    {
+        return $this->hasMany(
+            LeaveBalance::class,
+            'employee_id'
+        )->where(
+            'year',
+            now()->year
+        );
+    }
+
+    public function currentApprovedLeave(): HasOne
+    {
+        return $this->hasOne(
+            LeaveRequest::class,
+            'employee_id'
+        )
+            ->where(
+                'status',
+                LeaveRequest::STATUS_APPROVED
+            )
+            ->whereDate(
+                'start_date',
+                '<=',
+                now()->toDateString()
+            )
+            ->whereDate(
+                'end_date',
+                '>=',
+                now()->toDateString()
+            )
+            ->latestOfMany(
+                'start_date'
+            );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Leave Management Helpers
+    |--------------------------------------------------------------------------
+    */
+
+    public function isOnLeave(
+        ?string $date = null
+    ): bool {
+        $date ??=
+            now()->toDateString();
+
+        return $this->leaveRequests()
+            ->where(
+                'status',
+                LeaveRequest::STATUS_APPROVED
+            )
+            ->whereDate(
+                'start_date',
+                '<=',
+                $date
+            )
+            ->whereDate(
+                'end_date',
+                '>=',
+                $date
+            )
+            ->exists();
+    }
+
+    public function leaveBalanceFor(
+        int $leaveTypeId,
+        ?int $year = null
+    ): ?LeaveBalance {
+        $year ??=
+            now()->year;
+
+        return $this->leaveBalances()
+            ->where(
+                'leave_type_id',
+                $leaveTypeId
+            )
+            ->where(
+                'year',
+                $year
+            )
+            ->first();
+    }
+
+
     /*
     |--------------------------------------------------------------------------
     | Query Scopes

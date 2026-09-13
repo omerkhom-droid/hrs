@@ -160,6 +160,8 @@ class AttendanceController extends Controller
             'late_minutes' => $record->late_minutes,
             'early_leave_minutes' => $record->early_leave_minutes,
             'overtime_minutes' => $record->overtime_minutes,
+            'approved_overtime_minutes' =>
+                $record->approved_overtime_minutes,
             'approval_status' => $record->approval_status,
             'approval_status_label' => $record->approval_status_label,
             'check_in_distance' => $record->check_in_distance,
@@ -198,6 +200,11 @@ class AttendanceController extends Controller
             'require_geofence' => (bool) $policy->require_geofence,
             'allow_outside_geofence' => (bool) $policy->allow_outside_geofence,
             'require_photo' => (bool) $policy->require_photo,
+            'auto_check_out' => (bool) $policy->auto_check_out,
+            'auto_check_out_after_minutes' =>
+                (int) ($policy->auto_check_out_after_minutes ?? 60),
+            'max_location_accuracy' =>
+                (int) ($policy->max_location_accuracy ?? 100),
         ];
     }
 

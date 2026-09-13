@@ -1,3 +1,9 @@
+php artisan serve --host=0.0.0.0 --port=8000
+SSH@12345s
+cd domains/ruyat-yoom.com/public_html/hr
+<!-- ipconfig -->
+<!-- php artisan serve --host=192.168.103.127 --port=8000  -->
+
 <!-- REM Open the Laravel project directory -->
 cd /d D:\xampp\htdocs\laravel\hr
 <!--  -->

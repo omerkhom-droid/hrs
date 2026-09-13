@@ -73,6 +73,7 @@ class TenantAccessService
         'self_service.profile',
         'self_service.leave',
         'self_service.attendance',
+        'self_service.payslips',
     ];
 
     public function ensureDefaults(Tenant $tenant): void
@@ -175,6 +176,8 @@ class TenantAccessService
                 'reports.export',
 
                 'audit.view',
+
+                'self_service.payslips',
             ],
 
             'hr_officer' => [
@@ -205,6 +208,8 @@ class TenantAccessService
                 'training.view',
 
                 'reports.view',
+
+                'self_service.payslips',
             ],
 
             'payroll_manager' => [
@@ -217,6 +222,7 @@ class TenantAccessService
                 'payroll.manage',
                 'payroll.process',
                 'payroll.approve',
+                'self_service.payslips',
 
                 'reports.view',
                 'reports.export',
@@ -237,6 +243,7 @@ class TenantAccessService
                 'self_service.profile',
                 'self_service.leave',
                 'self_service.attendance',
+                'self_service.payslips',
             ],
 
             'employee' => [
@@ -244,6 +251,7 @@ class TenantAccessService
                 'self_service.profile',
                 'self_service.leave',
                 'self_service.attendance',
+                'self_service.payslips',
             ],
         ];
     }

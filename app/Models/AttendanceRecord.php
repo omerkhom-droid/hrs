@@ -48,6 +48,7 @@ class AttendanceRecord extends Model
         'late_minutes',
         'early_leave_minutes',
         'overtime_minutes',
+        'approved_overtime_minutes',
         'approval_status',
         'approved_at',
         'approved_by',
@@ -81,6 +82,7 @@ class AttendanceRecord extends Model
             'late_minutes' => 'integer',
             'early_leave_minutes' => 'integer',
             'overtime_minutes' => 'integer',
+            'approved_overtime_minutes' => 'integer',
             'approved_at' => 'datetime',
             'metadata' => 'array',
         ];
@@ -137,6 +139,11 @@ class AttendanceRecord extends Model
     public function adjustments(): HasMany
     {
         return $this->hasMany(AttendanceAdjustment::class);
+    }
+
+    public function overtimeRequests(): HasMany
+    {
+        return $this->hasMany(OvertimeRequest::class);
     }
 
     public function scopeSearch(

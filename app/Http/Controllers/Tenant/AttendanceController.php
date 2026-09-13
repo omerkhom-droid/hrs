@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tenant\BulkApproveAttendanceRequest;
 use App\Http\Requests\Tenant\StoreAttendanceRecordRequest;
 use App\Http\Requests\Tenant\UpdateAttendanceRecordRequest;
 use App\Models\AttendanceRecord;
@@ -11,6 +12,7 @@ use App\Models\Tenant;
 use App\Models\WorkLocation;
 use App\Models\WorkShift;
 use App\Services\HR\AttendanceService;
+use App\Services\HR\AttendanceApprovalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -20,7 +22,8 @@ use LogicException;
 class AttendanceController extends Controller
 {
     public function __construct(
-        private readonly AttendanceService $attendanceService
+        private readonly AttendanceService $attendanceService,
+        private readonly AttendanceApprovalService $approvalService
     ) {
     }
 
@@ -247,6 +250,23 @@ class AttendanceController extends Controller
         ]);
     }
 
+    public function bulkApprove(
+        BulkApproveAttendanceRequest $request
+    ): JsonResponse {
+        $result = $this->approvalService->bulkApprove(
+            $request->user(),
+            $request->validated('record_ids')
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => $result['approved'] > 0
+                ? 'تم اعتماد ' . $result['approved'] . ' سجل بنجاح.'
+                : 'لم توجد سجلات صالحة للاعتماد.',
+            'result' => $result,
+        ]);
+    }
+
     public function reopen(
         Request $request,
         AttendanceRecord $record
@@ -312,11 +332,16 @@ class AttendanceController extends Controller
             'work_minutes' => (int) (clone $query)->sum('work_minutes'),
             'overtime_minutes' =>
                 (int) (clone $query)->sum('overtime_minutes'),
+            'approved_overtime_minutes' =>
+                (int) (clone $query)->sum('approved_overtime_minutes'),
         ];
     }
 
     private function listPayload(AttendanceRecord $record): array
     {
+        $approval = data_get($record->metadata, 'approval', []);
+        $reviewReasons = (array) ($approval['review_reasons'] ?? []);
+
         return [
             'id' => $record->id,
             'uuid' => $record->uuid,
@@ -345,10 +370,20 @@ class AttendanceController extends Controller
             'late_minutes' => $record->late_minutes,
             'early_leave_minutes' => $record->early_leave_minutes,
             'overtime_minutes' => $record->overtime_minutes,
+            'approved_overtime_minutes' =>
+                $record->approved_overtime_minutes,
             'approval_status' => $record->approval_status,
             'approval_status_label' =>
                 $record->approval_status_label,
             'approved_by' => $record->approvedBy?->name,
+            'approval_source' => $approval['source'] ?? null,
+            'approval_review_reasons' =>
+                $this->approvalService->reasonLabels($reviewReasons),
+            'can_bulk_approve' =>
+                $record->approval_status !== 'approved'
+                && $record->status !== 'incomplete'
+                && $record->check_in_at
+                && $record->check_out_at,
             'notes' => $record->notes,
         ];
     }
@@ -365,8 +400,14 @@ class AttendanceController extends Controller
             'createdBy:id,tenant_id,name',
         ]);
 
+        $approval = data_get($record->metadata, 'approval', []);
+        $reviewReasons = (array) ($approval['review_reasons'] ?? []);
+
         return [
             ...$record->toArray(),
+            'approval_source' => $approval['source'] ?? null,
+            'approval_review_reasons' =>
+                $this->approvalService->reasonLabels($reviewReasons),
             'scheduled_check_in_local' =>
                 $this->localDateTime($record, 'scheduled_check_in_at'),
             'scheduled_check_out_local' =>

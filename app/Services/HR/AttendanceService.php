@@ -6,40 +6,67 @@ use App\Models\AttendancePolicy;
 use App\Models\AttendanceRecord;
 use App\Models\Employee;
 use App\Models\EmployeeShiftAssignment;
+use App\Models\Holiday;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WorkLocation;
 use App\Models\WorkShift;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
+use Carbon\CarbonImmutable;
 use LogicException;
 
 class AttendanceService
 {
     public function __construct(
-        private readonly WorkShiftService $shiftService
+        private readonly WorkShiftService $shiftService,
+        private readonly HolidayService $holidayService
     ) {
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Manual Attendance
+    |--------------------------------------------------------------------------
+    */
+
 
     public function createManualRecord(
         Tenant $tenant,
         User $actor,
         array $data
     ): AttendanceRecord {
-        $this->ensureActorBelongsToTenant($actor, $tenant);
+        $this->ensureActorBelongsToTenant(
+            $actor,
+            $tenant
+        );
 
         $employee = Employee::query()
-            ->where('tenant_id', $tenant->id)
-            ->findOrFail($data['employee_id']);
+            ->where(
+                'tenant_id',
+                $tenant->id
+            )
+            ->findOrFail(
+                $data['employee_id']
+            );
 
         $attendanceDate = Carbon::parse(
             $data['attendance_date']
         )->toDateString();
 
         $exists = AttendanceRecord::query()
-            ->where('tenant_id', $tenant->id)
-            ->where('employee_id', $employee->id)
-            ->whereDate('attendance_date', $attendanceDate)
+            ->where(
+                'tenant_id',
+                $tenant->id
+            )
+            ->where(
+                'employee_id',
+                $employee->id
+            )
+            ->whereDate(
+                'attendance_date',
+                $attendanceDate
+            )
             ->exists();
 
         if ($exists) {
@@ -56,7 +83,10 @@ class AttendanceService
         );
 
         $policy = $shift?->policy
-            ?: $this->shiftService->ensureDefaultPolicy($tenant);
+            ?: $this->shiftService
+                ->ensureDefaultPolicy(
+                    $tenant
+                );
 
         $location = $this->resolveLocation(
             $tenant,
@@ -64,145 +94,319 @@ class AttendanceService
             $data['work_location_id'] ?? null
         );
 
-        $values = $this->prepareRecordValues(
-            $data,
-            $attendanceDate,
-            $shift,
-            $policy
+        $holiday = $this->resolveAttendanceHoliday(
+            tenant: $tenant,
+            employee: $employee,
+            attendanceDate: $attendanceDate
         );
 
-        $record = new AttendanceRecord($values);
-        $record->tenant_id = $tenant->id;
-        $record->employee_id = $employee->id;
-        $record->work_shift_id = $shift?->id;
-        $record->work_location_id = $location?->id;
-        $record->check_in_source = $record->check_in_at
-            ? 'manual'
-            : null;
-        $record->check_out_source = $record->check_out_at
-            ? 'manual'
-            : null;
-        $record->created_by = $actor->id;
-        $record->approval_status = 'pending';
+        $values = $this->prepareRecordValues(
+            data: $data,
+            attendanceDate: $attendanceDate,
+            shift: $shift,
+            policy: $policy,
+            isHoliday: $holiday !== null
+        );
+
+        $record = new AttendanceRecord(
+            $values
+        );
+
+        $record->tenant_id =
+            $tenant->id;
+
+        $record->employee_id =
+            $employee->id;
+
+        $record->work_shift_id =
+            $shift?->id;
+
+        $record->work_location_id =
+            $location?->id;
+
+        $record->check_in_source =
+            $record->check_in_at
+                ? 'manual'
+                : null;
+
+        $record->check_out_source =
+            $record->check_out_at
+                ? 'manual'
+                : null;
+
+        $record->created_by =
+            $actor->id;
+
+        $record->approval_status =
+            'pending';
+
+        $this->applyHolidayMetadata(
+            $record,
+            $holiday
+        );
+
         $record->save();
 
-        return $this->loadRelations($record);
+        return $this->loadRelations(
+            $record
+        );
     }
+
 
     public function updateManualRecord(
         AttendanceRecord $record,
         User $actor,
         array $data
     ): AttendanceRecord {
-        $this->ensureRecordAccess($record, $actor);
+        $this->ensureRecordAccess(
+            $record,
+            $actor
+        );
 
-        if ($record->approval_status === 'approved') {
+        if (
+            $record->approval_status ===
+            'approved'
+        ) {
             throw new LogicException(
                 'يجب إلغاء اعتماد السجل قبل تعديله.'
             );
         }
 
-        $tenant = Tenant::query()->findOrFail($record->tenant_id);
-        $employee = $record->employee;
-        $attendanceDate = $record->attendance_date->toDateString();
+        $tenant = Tenant::query()
+            ->findOrFail(
+                $record->tenant_id
+            );
+
+        $employee =
+            $record->employee;
+
+        $attendanceDate =
+            $record->attendance_date
+                ->toDateString();
 
         $shift = $this->resolveShift(
             $tenant,
             $employee,
             $attendanceDate,
-            $data['work_shift_id'] ?? $record->work_shift_id
+            $data['work_shift_id']
+                ?? $record->work_shift_id
         );
 
         $policy = $shift?->policy
-            ?: $this->shiftService->ensureDefaultPolicy($tenant);
+            ?: $this->shiftService
+                ->ensureDefaultPolicy(
+                    $tenant
+                );
 
         $location = $this->resolveLocation(
             $tenant,
             $employee,
-            $data['work_location_id'] ?? $record->work_location_id
+            $data['work_location_id']
+                ?? $record->work_location_id
+        );
+
+        $holiday = $this->resolveAttendanceHoliday(
+            tenant: $tenant,
+            employee: $employee,
+            attendanceDate: $attendanceDate
         );
 
         $merged = [
-            'status' => $record->status,
-            'check_in_at' => $this->localDateTime(
-                $record->check_in_at,
-                $record->timezone
-            ),
-            'check_out_at' => $this->localDateTime(
-                $record->check_out_at,
-                $record->timezone
-            ),
-            'notes' => $record->notes,
+            'status' =>
+                $record->status,
+
+            'check_in_at' =>
+                $this->localDateTime(
+                    $record->check_in_at,
+                    $record->timezone
+                ),
+
+            'check_out_at' =>
+                $this->localDateTime(
+                    $record->check_out_at,
+                    $record->timezone
+                ),
+
+            'notes' =>
+                $record->notes,
+
             ...$data,
         ];
 
         $values = $this->prepareRecordValues(
-            $merged,
-            $attendanceDate,
-            $shift,
-            $policy
+            data: $merged,
+            attendanceDate: $attendanceDate,
+            shift: $shift,
+            policy: $policy,
+            isHoliday: $holiday !== null
         );
 
-        $record->fill($values);
-        $record->work_shift_id = $shift?->id;
-        $record->work_location_id = $location?->id;
-        $record->check_in_source = $record->check_in_at
-            ? 'manual'
-            : null;
-        $record->check_out_source = $record->check_out_at
-            ? 'manual'
-            : null;
-        $record->approval_status = 'pending';
-        $record->approved_at = null;
-        $record->approved_by = null;
+        $record->fill(
+            $values
+        );
+
+        $record->work_shift_id =
+            $shift?->id;
+
+        $record->work_location_id =
+            $location?->id;
+
+        $record->check_in_source =
+            $record->check_in_at
+                ? 'manual'
+                : null;
+
+        $record->check_out_source =
+            $record->check_out_at
+                ? 'manual'
+                : null;
+
+        $record->approval_status =
+            'pending';
+
+        $record->approved_at =
+            null;
+
+        $record->approved_by =
+            null;
+
+        $this->applyHolidayMetadata(
+            $record,
+            $holiday
+        );
+
         $record->save();
 
-        return $this->loadRelations($record);
+        return $this->loadRelations(
+            $record
+        );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Approval
+    |--------------------------------------------------------------------------
+    */
 
     public function approve(
         AttendanceRecord $record,
         User $actor
     ): AttendanceRecord {
-        $this->ensureRecordAccess($record, $actor);
+        $this->ensureRecordAccess(
+            $record,
+            $actor
+        );
 
-        if ($record->status === 'incomplete') {
+        if (
+            $record->status ===
+            'incomplete'
+        ) {
             throw new LogicException(
                 'لا يمكن اعتماد سجل غير مكتمل.'
             );
         }
 
+        $metadata =
+            $record->metadata ?? [];
+
+        $metadata['approval'] = [
+            ...(
+                $metadata['approval']
+                ?? []
+            ),
+
+            'source' =>
+                'manual',
+
+            'approved_at' =>
+                now()->toIso8601String(),
+
+            'approved_by' =>
+                $actor->id,
+        ];
+
         $record->forceFill([
-            'approval_status' => 'approved',
-            'approved_at' => now(),
-            'approved_by' => $actor->id,
+            'approval_status' =>
+                'approved',
+
+            'approved_at' =>
+                now(),
+
+            'approved_by' =>
+                $actor->id,
+
+            'metadata' =>
+                $metadata,
         ])->save();
 
-        return $this->loadRelations($record);
+        return $this->loadRelations(
+            $record
+        );
     }
+
 
     public function reopen(
         AttendanceRecord $record,
         User $actor
     ): AttendanceRecord {
-        $this->ensureRecordAccess($record, $actor);
+        $this->ensureRecordAccess(
+            $record,
+            $actor
+        );
+
+        $metadata =
+            $record->metadata ?? [];
+
+        $metadata['approval'] = [
+            ...(
+                $metadata['approval']
+                ?? []
+            ),
+
+            'source' =>
+                'pending_review',
+
+            'reopened_at' =>
+                now()->toIso8601String(),
+
+            'reopened_by' =>
+                $actor->id,
+        ];
 
         $record->forceFill([
-            'approval_status' => 'pending',
-            'approved_at' => null,
-            'approved_by' => null,
+            'approval_status' =>
+                'pending',
+
+            'approved_at' =>
+                null,
+
+            'approved_by' =>
+                null,
+
+            'metadata' =>
+                $metadata,
         ])->save();
 
-        return $this->loadRelations($record);
+        return $this->loadRelations(
+            $record
+        );
     }
+
 
     public function archive(
         AttendanceRecord $record,
         User $actor
     ): void {
-        $this->ensureRecordAccess($record, $actor);
+        $this->ensureRecordAccess(
+            $record,
+            $actor
+        );
 
-        if ($record->approval_status === 'approved') {
+        if (
+            $record->approval_status ===
+            'approved'
+        ) {
             throw new LogicException(
                 'لا يمكن أرشفة سجل معتمد قبل إلغاء اعتماده.'
             );
@@ -211,11 +415,13 @@ class AttendanceService
         $record->delete();
     }
 
-    /**
-     * Resolve the same shift, policy, location and scheduled times used by
-     * manual attendance. Mobile/API punch services call this method so the
-     * business rules are not duplicated in controllers.
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Punch Context
+    |--------------------------------------------------------------------------
+    */
+
     public function resolvePunchContext(
         Tenant $tenant,
         Employee $employee,
@@ -223,7 +429,10 @@ class AttendanceService
         mixed $shiftId = null,
         mixed $locationId = null
     ): array {
-        if ((int) $employee->tenant_id !== (int) $tenant->id) {
+        if (
+            (int) $employee->tenant_id !==
+            (int) $tenant->id
+        ) {
             throw new LogicException(
                 'الموظف لا يتبع الشركة الحالية.'
             );
@@ -237,7 +446,10 @@ class AttendanceService
         );
 
         $policy = $shift?->policy
-            ?: $this->shiftService->ensureDefaultPolicy($tenant);
+            ?: $this->shiftService
+                ->ensureDefaultPolicy(
+                    $tenant
+                );
 
         $location = $this->resolveLocation(
             $tenant,
@@ -245,25 +457,53 @@ class AttendanceService
             $locationId
         );
 
-        [$scheduledIn, $scheduledOut] = $this->scheduledTimes(
+        $holiday = $this->resolveAttendanceHoliday(
+            tenant: $tenant,
+            employee: $employee,
+            attendanceDate: $attendanceDate
+        );
+
+        [
+            $scheduledIn,
+            $scheduledOut
+        ] = $this->scheduledTimes(
             $attendanceDate,
             $shift,
-            $policy->timezone ?: 'Asia/Riyadh'
+            $policy->timezone
+                ?: 'Asia/Riyadh'
         );
 
         return [
-            'shift' => $shift,
-            'policy' => $policy,
-            'location' => $location,
-            'scheduled_in' => $scheduledIn,
-            'scheduled_out' => $scheduledOut,
+            'shift' =>
+                $shift,
+
+            'policy' =>
+                $policy,
+
+            'location' =>
+                $location,
+
+            'scheduled_in' =>
+                $scheduledIn,
+
+            'scheduled_out' =>
+                $scheduledOut,
+
+            'is_holiday' =>
+                $holiday !== null,
+
+            'holiday' =>
+                $holiday,
         ];
     }
 
-    /**
-     * Calculate attendance values through the same calculator used by the
-     * web administration records.
-     */
+
+    /*
+    |--------------------------------------------------------------------------
+    | Punch Metrics
+    |--------------------------------------------------------------------------
+    */
+
     public function calculatePunchMetrics(
         string $requestedStatus,
         ?Carbon $checkIn,
@@ -271,68 +511,158 @@ class AttendanceService
         ?Carbon $scheduledIn,
         ?Carbon $scheduledOut,
         int $plannedBreakMinutes,
-        AttendancePolicy $policy
+        AttendancePolicy $policy,
+        bool $isHoliday = false
     ): array {
         return $this->calculateMetrics(
-            $requestedStatus,
-            $checkIn,
-            $checkOut,
-            $scheduledIn,
-            $scheduledOut,
-            $plannedBreakMinutes,
-            $policy
+            requestedStatus:
+                $requestedStatus,
+
+            checkIn:
+                $checkIn,
+
+            checkOut:
+                $checkOut,
+
+            scheduledIn:
+                $scheduledIn,
+
+            scheduledOut:
+                $scheduledOut,
+
+            plannedBreakMinutes:
+                $plannedBreakMinutes,
+
+            policy:
+                $policy,
+
+            isHoliday:
+                $isHoliday
         );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Record Calculation
+    |--------------------------------------------------------------------------
+    */
 
     private function prepareRecordValues(
         array $data,
         string $attendanceDate,
         ?WorkShift $shift,
-        AttendancePolicy $policy
+        AttendancePolicy $policy,
+        bool $isHoliday = false
     ): array {
-        $timezone = $policy->timezone ?: 'Asia/Riyadh';
-        [$scheduledIn, $scheduledOut] = $this->scheduledTimes(
+        $timezone =
+            $policy->timezone
+            ?: 'Asia/Riyadh';
+
+        [
+            $scheduledIn,
+            $scheduledOut
+        ] = $this->scheduledTimes(
             $attendanceDate,
             $shift,
             $timezone
         );
 
-        $checkIn = $this->parseLocalDateTime(
-            $data['check_in_at'] ?? null,
-            $timezone
-        );
-        $checkOut = $this->parseLocalDateTime(
-            $data['check_out_at'] ?? null,
-            $timezone
-        );
+        $checkIn =
+            $this->parseLocalDateTime(
+                $data['check_in_at']
+                    ?? null,
 
-        $status = $data['status'] ?? 'incomplete';
-        $metrics = $this->calculateMetrics(
-            $status,
-            $checkIn,
-            $checkOut,
-            $scheduledIn,
-            $scheduledOut,
-            $shift?->break_minutes ?? 0,
-            $policy
-        );
+                $timezone
+            );
+
+        $checkOut =
+            $this->parseLocalDateTime(
+                $data['check_out_at']
+                    ?? null,
+
+                $timezone
+            );
+
+        $status =
+            $data['status']
+            ?? 'incomplete';
+
+        $metrics =
+            $this->calculateMetrics(
+                requestedStatus:
+                    $status,
+
+                checkIn:
+                    $checkIn,
+
+                checkOut:
+                    $checkOut,
+
+                scheduledIn:
+                    $scheduledIn,
+
+                scheduledOut:
+                    $scheduledOut,
+
+                plannedBreakMinutes:
+                    $shift?->break_minutes
+                    ?? 0,
+
+                policy:
+                    $policy,
+
+                isHoliday:
+                    $isHoliday
+            );
 
         return [
-            'attendance_date' => $attendanceDate,
-            'timezone' => $timezone,
-            'scheduled_check_in_at' => $scheduledIn,
-            'scheduled_check_out_at' => $scheduledOut,
-            'check_in_at' => $checkIn,
-            'check_out_at' => $checkOut,
-            'status' => $metrics['status'],
-            'work_minutes' => $metrics['work_minutes'],
-            'break_minutes' => $metrics['break_minutes'],
-            'late_minutes' => $metrics['late_minutes'],
-            'early_leave_minutes' => $metrics['early_leave_minutes'],
-            'overtime_minutes' => $metrics['overtime_minutes'],
-            'notes' => $data['notes'] ?? null,
+            'attendance_date' =>
+                $attendanceDate,
+
+            'timezone' =>
+                $timezone,
+
+            'scheduled_check_in_at' =>
+                $scheduledIn,
+
+            'scheduled_check_out_at' =>
+                $scheduledOut,
+
+            'check_in_at' =>
+                $checkIn,
+
+            'check_out_at' =>
+                $checkOut,
+
+            'status' =>
+                $metrics['status'],
+
+            'work_minutes' =>
+                $metrics['work_minutes'],
+
+            'break_minutes' =>
+                $metrics['break_minutes'],
+
+            'late_minutes' =>
+                $metrics['late_minutes'],
+
+            'early_leave_minutes' =>
+                $metrics[
+                    'early_leave_minutes'
+                ],
+
+            'overtime_minutes' =>
+                $metrics[
+                    'overtime_minutes'
+                ],
+
+            'notes' =>
+                $data['notes']
+                ?? null,
         ];
     }
+
 
     private function calculateMetrics(
         string $requestedStatus,
@@ -341,97 +671,328 @@ class AttendanceService
         ?Carbon $scheduledIn,
         ?Carbon $scheduledOut,
         int $plannedBreakMinutes,
-        AttendancePolicy $policy
+        AttendancePolicy $policy,
+        bool $isHoliday = false
     ): array {
-        if (in_array($requestedStatus, [
-            'absent',
-            'on_leave',
-            'holiday',
-        ], true)) {
+        /*
+         * يوم عطلة بدون حضور.
+         */
+        if (
+            $isHoliday &&
+            !$checkIn
+        ) {
             return [
-                'status' => $requestedStatus,
-                'work_minutes' => 0,
-                'break_minutes' => 0,
-                'late_minutes' => 0,
-                'early_leave_minutes' => 0,
-                'overtime_minutes' => 0,
+                'status' =>
+                    'holiday',
+
+                'work_minutes' =>
+                    0,
+
+                'break_minutes' =>
+                    0,
+
+                'late_minutes' =>
+                    0,
+
+                'early_leave_minutes' =>
+                    0,
+
+                'overtime_minutes' =>
+                    0,
             ];
         }
 
+        /*
+         * حضور في عطلة بدون تسجيل انصراف.
+         */
+        if (
+            $isHoliday &&
+            $checkIn &&
+            !$checkOut
+        ) {
+            return [
+                'status' =>
+                    'incomplete',
+
+                'work_minutes' =>
+                    0,
+
+                'break_minutes' =>
+                    0,
+
+                'late_minutes' =>
+                    0,
+
+                'early_leave_minutes' =>
+                    0,
+
+                'overtime_minutes' =>
+                    0,
+            ];
+        }
+
+        /*
+         * حضور وانصراف مكتملان في عطلة.
+         * كامل وقت العمل يعتبر إضافيًا.
+         */
+        if (
+            $isHoliday &&
+            $checkIn &&
+            $checkOut
+        ) {
+            $totalMinutes = max(
+                0,
+                (int) floor(
+                    $checkIn
+                        ->diffInMinutes(
+                            $checkOut
+                        )
+                )
+            );
+
+            $breakMinutes = min(
+                $plannedBreakMinutes,
+                $totalMinutes
+            );
+
+            $workMinutes = max(
+                0,
+                $totalMinutes -
+                $breakMinutes
+            );
+
+            return [
+                'status' =>
+                    'present',
+
+                'work_minutes' =>
+                    $workMinutes,
+
+                'break_minutes' =>
+                    $breakMinutes,
+
+                'late_minutes' =>
+                    0,
+
+                'early_leave_minutes' =>
+                    0,
+
+                'overtime_minutes' =>
+                    $workMinutes,
+            ];
+        }
+
+        /*
+         * الحالات التي لا تحتوي
+         * على حضور فعلي.
+         */
+        if (
+            in_array(
+                $requestedStatus,
+                [
+                    'absent',
+                    'on_leave',
+                    'holiday',
+                ],
+                true
+            )
+        ) {
+            return [
+                'status' =>
+                    $requestedStatus,
+
+                'work_minutes' =>
+                    0,
+
+                'break_minutes' =>
+                    0,
+
+                'late_minutes' =>
+                    0,
+
+                'early_leave_minutes' =>
+                    0,
+
+                'overtime_minutes' =>
+                    0,
+            ];
+        }
+
+        /*
+         * لا يوجد حضور.
+         */
         if (!$checkIn) {
             return [
-                'status' => 'incomplete',
-                'work_minutes' => 0,
-                'break_minutes' => 0,
-                'late_minutes' => 0,
-                'early_leave_minutes' => 0,
-                'overtime_minutes' => 0,
+                'status' =>
+                    'incomplete',
+
+                'work_minutes' =>
+                    0,
+
+                'break_minutes' =>
+                    0,
+
+                'late_minutes' =>
+                    0,
+
+                'early_leave_minutes' =>
+                    0,
+
+                'overtime_minutes' =>
+                    0,
             ];
         }
 
         $lateMinutes = 0;
 
-        if ($scheduledIn && $checkIn->gt($scheduledIn)) {
+        if (
+            $scheduledIn &&
+            $checkIn->gt(
+                $scheduledIn
+            )
+        ) {
             $lateMinutes = max(
                 0,
-                (int) floor($scheduledIn->diffInMinutes($checkIn))
-                    - $policy->late_grace_minutes
+                (int) floor(
+                    $scheduledIn
+                        ->diffInMinutes(
+                            $checkIn
+                        )
+                ) -
+                $policy
+                    ->late_grace_minutes
             );
         }
 
+        /*
+         * حضور بدون انصراف.
+         */
         if (!$checkOut) {
             return [
-                'status' => 'incomplete',
-                'work_minutes' => 0,
-                'break_minutes' => 0,
-                'late_minutes' => $lateMinutes,
-                'early_leave_minutes' => 0,
-                'overtime_minutes' => 0,
+                'status' =>
+                    'incomplete',
+
+                'work_minutes' =>
+                    0,
+
+                'break_minutes' =>
+                    0,
+
+                'late_minutes' =>
+                    $lateMinutes,
+
+                'early_leave_minutes' =>
+                    0,
+
+                'overtime_minutes' =>
+                    0,
             ];
         }
 
         $totalMinutes = max(
             0,
-            (int) floor($checkIn->diffInMinutes($checkOut))
+            (int) floor(
+                $checkIn
+                    ->diffInMinutes(
+                        $checkOut
+                    )
+            )
         );
-        $breakMinutes = min($plannedBreakMinutes, $totalMinutes);
-        $workMinutes = max(0, $totalMinutes - $breakMinutes);
+
+        $breakMinutes = min(
+            $plannedBreakMinutes,
+            $totalMinutes
+        );
+
+        $workMinutes = max(
+            0,
+            $totalMinutes -
+            $breakMinutes
+        );
+
         $earlyLeaveMinutes = 0;
         $overtimeMinutes = 0;
 
-        if ($scheduledOut && $checkOut->lt($scheduledOut)) {
+        if (
+            $scheduledOut &&
+            $checkOut->lt(
+                $scheduledOut
+            )
+        ) {
             $earlyLeaveMinutes = max(
                 0,
-                (int) floor($checkOut->diffInMinutes($scheduledOut))
-                    - $policy->early_leave_grace_minutes
+                (int) floor(
+                    $checkOut
+                        ->diffInMinutes(
+                            $scheduledOut
+                        )
+                ) -
+                $policy
+                    ->early_leave_grace_minutes
             );
         }
 
         if ($scheduledOut) {
-            $overtimeStartsAt = $scheduledOut->copy()->addMinutes(
-                $policy->overtime_after_minutes
-            );
+            $overtimeStartsAt =
+                $scheduledOut
+                    ->copy()
+                    ->addMinutes(
+                        $policy
+                            ->overtime_after_minutes
+                    );
 
-            if ($checkOut->gt($overtimeStartsAt)) {
-                $overtimeMinutes = (int) floor(
-                    $overtimeStartsAt->diffInMinutes($checkOut)
-                );
+            if (
+                $checkOut->gt(
+                    $overtimeStartsAt
+                )
+            ) {
+                $overtimeMinutes =
+                    (int) floor(
+                        $overtimeStartsAt
+                            ->diffInMinutes(
+                                $checkOut
+                            )
+                    );
             }
         }
 
-        $status = $requestedStatus === 'remote'
-            ? 'remote'
-            : ($lateMinutes > 0 ? 'late' : 'present');
+        $status =
+            $requestedStatus ===
+            'remote'
+                ? 'remote'
+                : (
+                    $lateMinutes > 0
+                        ? 'late'
+                        : 'present'
+                );
 
         return [
-            'status' => $status,
-            'work_minutes' => $workMinutes,
-            'break_minutes' => $breakMinutes,
-            'late_minutes' => $lateMinutes,
-            'early_leave_minutes' => $earlyLeaveMinutes,
-            'overtime_minutes' => $overtimeMinutes,
+            'status' =>
+                $status,
+
+            'work_minutes' =>
+                $workMinutes,
+
+            'break_minutes' =>
+                $breakMinutes,
+
+            'late_minutes' =>
+                $lateMinutes,
+
+            'early_leave_minutes' =>
+                $earlyLeaveMinutes,
+
+            'overtime_minutes' =>
+                $overtimeMinutes,
         ];
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Schedule
+    |--------------------------------------------------------------------------
+    */
 
     private function scheduledTimes(
         string $attendanceDate,
@@ -439,27 +1000,51 @@ class AttendanceService
         string $timezone
     ): array {
         if (!$shift) {
-            return [null, null];
+            return [
+                null,
+                null,
+            ];
         }
 
         $start = Carbon::createFromFormat(
             'Y-m-d H:i:s',
-            $attendanceDate . ' ' . $this->normalizeTime($shift->start_time),
+            $attendanceDate .
+            ' ' .
+            $this->normalizeTime(
+                $shift->start_time
+            ),
             $timezone
         );
 
         $end = Carbon::createFromFormat(
             'Y-m-d H:i:s',
-            $attendanceDate . ' ' . $this->normalizeTime($shift->end_time),
+            $attendanceDate .
+            ' ' .
+            $this->normalizeTime(
+                $shift->end_time
+            ),
             $timezone
         );
 
-        if ($shift->crosses_midnight || $end->lte($start)) {
+        if (
+            $shift->crosses_midnight ||
+            $end->lte($start)
+        ) {
             $end->addDay();
         }
 
-        return [$start->utc(), $end->utc()];
+        return [
+            $start->utc(),
+            $end->utc(),
+        ];
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Resolve Shift And Location
+    |--------------------------------------------------------------------------
+    */
 
     private function resolveShift(
         Tenant $tenant,
@@ -469,47 +1054,185 @@ class AttendanceService
     ): ?WorkShift {
         if ($shiftId) {
             return WorkShift::query()
-                ->with('policy')
-                ->where('tenant_id', $tenant->id)
-                ->findOrFail($shiftId);
+                ->with(
+                    'policy'
+                )
+                ->where(
+                    'tenant_id',
+                    $tenant->id
+                )
+                ->findOrFail(
+                    $shiftId
+                );
         }
 
-        $assignment = EmployeeShiftAssignment::query()
-            ->with('shift.policy')
-            ->where('tenant_id', $tenant->id)
-            ->where('employee_id', $employee->id)
-            ->effectiveOn($attendanceDate)
-            ->orderByDesc('is_primary')
-            ->orderByDesc('effective_from')
-            ->first();
+        $assignment =
+            EmployeeShiftAssignment::query()
+                ->with(
+                    'shift.policy'
+                )
+                ->where(
+                    'tenant_id',
+                    $tenant->id
+                )
+                ->where(
+                    'employee_id',
+                    $employee->id
+                )
+                ->effectiveOn(
+                    $attendanceDate
+                )
+                ->orderByDesc(
+                    'is_primary'
+                )
+                ->orderByDesc(
+                    'effective_from'
+                )
+                ->first();
 
-        if ($assignment?->shift) {
+        if (
+            $assignment?->shift
+        ) {
             return $assignment->shift;
         }
 
         return WorkShift::query()
-            ->with('policy')
-            ->where('tenant_id', $tenant->id)
-            ->where('is_default', true)
-            ->where('is_active', true)
+            ->with(
+                'policy'
+            )
+            ->where(
+                'tenant_id',
+                $tenant->id
+            )
+            ->where(
+                'is_default',
+                true
+            )
+            ->where(
+                'is_active',
+                true
+            )
             ->first();
     }
+
 
     private function resolveLocation(
         Tenant $tenant,
         Employee $employee,
         mixed $locationId
     ): ?WorkLocation {
-        $locationId = $locationId ?: $employee->work_location_id;
+        $locationId =
+            $locationId
+            ?: $employee
+                ->work_location_id;
 
         if (!$locationId) {
             return null;
         }
 
         return WorkLocation::query()
-            ->where('tenant_id', $tenant->id)
-            ->findOrFail($locationId);
+            ->where(
+                'tenant_id',
+                $tenant->id
+            )
+            ->findOrFail(
+                $locationId
+            );
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Holidays
+    |--------------------------------------------------------------------------
+    */
+
+    private function resolveAttendanceHoliday(
+        Tenant $tenant,
+        Employee $employee,
+        string $attendanceDate
+    ): ?Holiday {
+        $timezone =
+            $employee->timezone
+            ?: $tenant->timezone
+            ?: 'Asia/Riyadh';
+
+        $date = Carbon::parse(
+            $attendanceDate,
+            $timezone
+        )->startOfDay();
+
+        $branchId =
+            $employee->branch_id
+                ? (int) $employee
+                    ->branch_id
+                : null;
+
+        return $this->holidayService
+            ->holidaysForDate(
+                tenant:
+                    $tenant,
+
+                date:
+                    CarbonImmutable::instance($date),
+
+                branchId:
+                    $branchId
+            )
+            ->first(
+                fn (Holiday $holiday) =>
+                    (bool) $holiday
+                        ->affects_attendance
+            );
+    }
+
+
+    private function applyHolidayMetadata(
+        AttendanceRecord $record,
+        ?Holiday $holiday
+    ): void {
+        $metadata =
+            $record->metadata ?? [];
+
+        if (!$holiday) {
+            unset(
+                $metadata['holiday']
+            );
+
+            $record->metadata =
+                $metadata ?: null;
+
+            return;
+        }
+
+        $metadata['holiday'] = [
+            'id' =>
+                $holiday->id,
+
+            'code' =>
+                $holiday->code,
+
+            'name' =>
+                $holiday->name,
+
+            'type' =>
+                $holiday->type,
+
+            'worked' =>
+                (bool) $record
+                    ->check_in_at,
+        ];
+
+        $record->metadata =
+            $metadata;
+    }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Date Helpers
+    |--------------------------------------------------------------------------
+    */
 
     private function parseLocalDateTime(
         mixed $value,
@@ -519,8 +1242,12 @@ class AttendanceService
             return null;
         }
 
-        return Carbon::parse($value, $timezone)->utc();
+        return Carbon::parse(
+            $value,
+            $timezone
+        )->utc();
     }
+
 
     private function localDateTime(
         mixed $value,
@@ -530,46 +1257,83 @@ class AttendanceService
             return null;
         }
 
-        return Carbon::parse($value)
-            ->timezone($timezone)
-            ->format('Y-m-d H:i:s');
+        return Carbon::parse(
+            $value
+        )
+            ->timezone(
+                $timezone
+            )
+            ->format(
+                'Y-m-d H:i:s'
+            );
     }
 
-    private function normalizeTime(string $time): string
-    {
-        return strlen($time) === 5 ? $time . ':00' : $time;
+
+    private function normalizeTime(
+        string $time
+    ): string {
+        return strlen($time) === 5
+            ? $time . ':00'
+            : $time;
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relations
+    |--------------------------------------------------------------------------
+    */
 
     private function loadRelations(
         AttendanceRecord $record
     ): AttendanceRecord {
         return $record->load([
             'employee:id,tenant_id,employee_number,department_id,job_title_id,first_name,father_name,grandfather_name,family_name',
+
             'employee.department:id,tenant_id,name',
+
             'employee.jobTitle:id,tenant_id,name',
+
             'shift:id,tenant_id,code,name,start_time,end_time',
+
             'workLocation:id,tenant_id,code,name',
+
             'approvedBy:id,tenant_id,name',
+
             'createdBy:id,tenant_id,name',
         ]);
     }
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authorization
+    |--------------------------------------------------------------------------
+    */
 
     private function ensureActorBelongsToTenant(
         User $actor,
         Tenant $tenant
     ): void {
-        if ((int) $actor->tenant_id !== (int) $tenant->id) {
+        if (
+            (int) $actor->tenant_id !==
+            (int) $tenant->id
+        ) {
             throw new LogicException(
                 'لا يمكن إدارة حضور شركة أخرى.'
             );
         }
     }
 
+
     private function ensureRecordAccess(
         AttendanceRecord $record,
         User $actor
     ): void {
-        if ((int) $record->tenant_id !== (int) $actor->tenant_id) {
+        if (
+            (int) $record->tenant_id !==
+            (int) $actor->tenant_id
+        ) {
             throw new LogicException(
                 'لا يمكن إدارة سجل تابع لشركة أخرى.'
             );

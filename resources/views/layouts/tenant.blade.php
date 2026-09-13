@@ -391,150 +391,15 @@
         <small dir="ltr">{{ $tenant?->code ?? '-' }}</small>
     </div>
 
-    <nav class="sidebar-menu">
-        <div class="sidebar-title">الرئيسية</div>
-
-        @can('dashboard.view')
-            <a href="{{ route('app.dashboard') }}"
-               class="sidebar-link {{ request()->routeIs('app.dashboard') ? 'active' : '' }}">
-                <i class="bi bi-grid sidebar-icon"></i>
-                <span>لوحة التحكم</span>
-            </a>
-        @endcan
-
-        @can('users.view')
-            <a href="{{ route('app.users.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.users.*') ? 'active' : '' }}">
-                <i class="bi bi-people sidebar-icon"></i>
-                <span>المستخدمون</span>
-            </a>
-        @endcan
-
-        @can('roles.view')
-            <a href="{{ route('app.roles.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.roles.*') ? 'active' : '' }}">
-                <i class="bi bi-shield-lock sidebar-icon"></i>
-                <span>الأدوار والصلاحيات</span>
-            </a>
-        @endcan
-
-        @if(
-            auth()->user()->can('branches.view') ||
-            auth()->user()->can('departments.view') ||
-            auth()->user()->can('job_titles.view') ||
-            auth()->user()->can('work_locations.view')
-        )
-            <div class="sidebar-title">الهيكل التنظيمي</div>
-        @endif
-
-        @can('branches.view')
-            <a href="{{ route('app.organization.branches.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.organization.branches.*') ? 'active' : '' }}">
-                <i class="bi bi-building sidebar-icon"></i>
-                <span>الفروع</span>
-            </a>
-        @endcan
-
-        @can('departments.view')
-            <a href="{{ route('app.organization.departments.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.organization.departments.*') ? 'active' : '' }}">
-                <i class="bi bi-diagram-3 sidebar-icon"></i>
-                <span>الإدارات والأقسام</span>
-            </a>
-        @endcan
-
-        @can('job_titles.view')
-            <a href="{{ route('app.organization.job-titles.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.organization.job-titles.*') ? 'active' : '' }}">
-                <i class="bi bi-person-badge sidebar-icon"></i>
-                <span>المسميات الوظيفية</span>
-            </a>
-        @endcan
-
-        @can('work_locations.view')
-            <a href="{{ route('app.organization.work-locations.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.organization.work-locations.*') ? 'active' : '' }}">
-                <i class="bi bi-geo-alt sidebar-icon"></i>
-                <span>مواقع العمل</span>
-            </a>
-        @endcan
-
-        @if(
-            auth()->user()->can('employees.view') ||
-            auth()->user()->can('contracts.view') ||
-            auth()->user()->can('documents.view')
-        )
-            <div class="sidebar-title">الموارد البشرية</div>
-        @endif
-
-        @can('employees.view')
-            <a href="{{ route('app.employees.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.employees.*') ? 'active' : '' }}">
-                <i class="bi bi-person-vcard sidebar-icon"></i>
-                <span>الموظفون</span>
-            </a>
-        @endcan
-        
-        @can('contracts.view')
-            <a href="{{ route('app.contracts.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.contracts.*') ? 'active' : '' }}">
-
-                <span class="sidebar-icon">▣</span>
-                <span>عقود الموظفين</span>
-
-            </a>
-        @endcan
-
-        @can('documents.view')
-            <a
-                href="{{ route('app.documents.index') }}"
-                class="sidebar-link {{ request()->routeIs('app.documents.*') ? 'active' : '' }}"
-            >
-                <span>▤</span>
-                <span>مستندات الموظفين</span>
-            </a>
-        @endcan
-
-        {{-- روابط العقود والمستندات ستضاف عند اكتمال وحداتها ومساراتها. --}}
-        @can('attendance.view')
-            <a
-                href="{{ route('app.attendance.shifts.index') }}"
-                class="sidebar-link {{ request()->routeIs('app.attendance.shifts.*') || request()->routeIs('app.attendance.policy.*') ? 'active' : '' }}"
-            >
-                <span>⌚</span>
-                <span>الورديات والتكليفات</span>
-            </a>
-            
-            <a
-                href="{{ route('app.attendance.index') }}"
-                class="sidebar-link {{ request()->routeIs('app.attendance.index') ? 'active' : '' }}"
-            >
-                <span>◷</span>
-                <span>الحضور والانصراف</span>
-            </a>
-
-        @endcan
-        @if(
-            auth()->user()->can('self_service.attendance') ||
-            auth()->user()->can('attendance.view')
-        )
-            <div class="sidebar-title">الدوام والخدمة الذاتية</div>
-        @endif
-
-        @can('self_service.attendance')
-            <a href="{{ route('app.attendance.self-service.index') }}"
-               class="sidebar-link {{ request()->routeIs('app.attendance.self-service.*') ? 'active' : '' }}">
-                <i class="bi bi-fingerprint sidebar-icon"></i>
-                <span>تسجيل حضوري</span>
-            </a>
-        @endcan
-    </nav>
-
-    <div class="subscription-box">
-        <div class="text-white-50">الاشتراك الحالي</div>
-        <div class="value">{{ $planName }}</div>
-        <div class="date">ينتهي: {{ $subscriptionEnd }}</div>
-    </div>
+    @include('layouts.partials.tenant-sidebar-menu')
+    
+    @if($tenantUser?->is_system_admin)
+        <div class="subscription-box">
+            <div class="text-white-50">الاشتراك الحالي</div>
+            <div class="value">{{ $planName }}</div>
+            <div class="date">ينتهي: {{ $subscriptionEnd }}</div>
+        </div>
+    @endif
 </aside>
 
 <div class="tenant-main">

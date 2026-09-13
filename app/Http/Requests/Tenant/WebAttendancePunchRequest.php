@@ -40,6 +40,21 @@ class WebAttendancePunchRequest extends FormRequest
                 'mimes:jpg,jpeg,png,webp',
                 'max:5120',
             ],
+            'capture_method' => [
+                'nullable',
+                'required_with:photo',
+                'in:camera',
+            ],
+            'captured_at' => [
+                'nullable',
+                'required_with:photo',
+                'date',
+            ],
+            'camera_facing' => [
+                'nullable',
+                'required_with:photo',
+                'in:user',
+            ],
         ];
     }
 
@@ -50,6 +65,9 @@ class WebAttendancePunchRequest extends FormRequest
             'longitude' => 'خط الطول',
             'accuracy' => 'دقة الموقع',
             'photo' => 'صورة إثبات الحضور',
+            'capture_method' => 'طريقة التقاط الصورة',
+            'captured_at' => 'وقت التقاط الصورة',
+            'camera_facing' => 'اتجاه الكاميرا',
         ];
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Tenant\AttendanceController;
+use App\Http\Controllers\Tenant\OvertimeController;
 use App\Http\Controllers\Tenant\SelfServiceAttendanceController;
 use App\Http\Controllers\Tenant\WorkShiftController;
 use Illuminate\Support\Facades\Route;
@@ -47,6 +48,63 @@ Route::prefix('attendance')
                     'checkOut',
                 ])->middleware('throttle:10,1')
                     ->name('check-out');
+            });
+
+        Route::prefix('overtime')
+            ->name('overtime.')
+            ->group(function () {
+                Route::get('/', [
+                    OvertimeController::class,
+                    'index',
+                ])->name('index');
+
+                Route::get('/data', [
+                    OvertimeController::class,
+                    'data',
+                ])->name('data');
+
+                Route::get('/options', [
+                    OvertimeController::class,
+                    'options',
+                ])->name('options');
+
+                Route::post('/', [
+                    OvertimeController::class,
+                    'store',
+                ])->name('store');
+
+                Route::post('/bulk-decision', [
+                    OvertimeController::class,
+                    'bulkDecision',
+                ])->name('bulk-decision');
+
+                Route::get('/{overtimeRequest}', [
+                    OvertimeController::class,
+                    'show',
+                ])
+                    ->whereNumber('overtimeRequest')
+                    ->name('show');
+
+                Route::post('/{overtimeRequest}/approve', [
+                    OvertimeController::class,
+                    'approve',
+                ])
+                    ->whereNumber('overtimeRequest')
+                    ->name('approve');
+
+                Route::post('/{overtimeRequest}/reject', [
+                    OvertimeController::class,
+                    'reject',
+                ])
+                    ->whereNumber('overtimeRequest')
+                    ->name('reject');
+
+                Route::post('/{overtimeRequest}/cancel', [
+                    OvertimeController::class,
+                    'cancel',
+                ])
+                    ->whereNumber('overtimeRequest')
+                    ->name('cancel');
             });
 
         Route::get('/shifts/data', [WorkShiftController::class, 'data'])
@@ -113,6 +171,11 @@ Route::prefix('attendance')
 
         Route::post('/', [AttendanceController::class, 'store'])
             ->name('store');
+
+        Route::post(
+            '/bulk-approve',
+            [AttendanceController::class, 'bulkApprove']
+        )->name('bulk-approve');
 
         Route::post(
             '/{record}/approve',

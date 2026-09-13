@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Str;
 
 class EmployeeMobileDevice extends Model
 {
@@ -44,15 +43,6 @@ class EmployeeMobileDevice extends Model
         ];
     }
 
-    protected static function booted(): void
-    {
-        static::creating(function (EmployeeMobileDevice $device) {
-            if (!$device->uuid) {
-                $device->uuid = (string) Str::uuid();
-            }
-        });
-    }
-
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -63,8 +53,9 @@ class EmployeeMobileDevice extends Model
         return $this->belongsTo(Employee::class);
     }
 
-    public function scopeActive(Builder $query): Builder
-    {
+    public function scopeActive(
+        Builder $query
+    ): Builder {
         return $query->where(
             $this->qualifyColumn('is_active'),
             true

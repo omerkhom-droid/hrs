@@ -562,6 +562,56 @@
                 />
               </div>
               <div class="col-md-4">
+                <label class="form-label" for="policyAutoOutAfter"
+                  >الانصراف التلقائي بعد نهاية الوردية</label
+                ><div class="input-group">
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="policyAutoOutAfter"
+                    name="auto_check_out_after_minutes"
+                    min="0"
+                    max="1440"
+                    value="60"
+                    required
+                  />
+                  <span class="input-group-text">دقيقة</span>
+                </div>
+                <div class="form-text">مهلة للموظف قبل تدخل النظام.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="policyApprovalMode"
+                  >طريقة اعتماد الحضور</label
+                ><select
+                  class="form-select"
+                  id="policyApprovalMode"
+                  name="approval_mode"
+                  required
+                >
+                  <option value="auto_clean">تلقائي للسجلات السليمة</option>
+                  <option value="manual">يدوي لجميع السجلات</option>
+                </select>
+                <div class="form-text">الحالات الاستثنائية تبقى للمراجعة.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label" for="policyMaxAccuracy"
+                  >أقصى دقة مسموحة للموقع</label
+                ><div class="input-group">
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="policyMaxAccuracy"
+                    name="max_location_accuracy"
+                    min="10"
+                    max="500"
+                    value="100"
+                    required
+                  />
+                  <span class="input-group-text">متر</span>
+                </div>
+                <div class="form-text">القيمة الموصى بها 50 إلى 100 متر.</div>
+              </div>
+              <div class="col-md-4">
                 <label class="form-label" for="policyRounding"
                   >تقريب الوقت</label
                 ><select
@@ -1141,6 +1191,11 @@
         $("#policyOvertime").val(p.overtime_after_minutes ?? 0);
         $("#policyEarlyCheckIn").val(p.early_check_in_minutes ?? 120);
         $("#policyLateCheckOut").val(p.late_check_out_minutes ?? 240);
+        $("#policyAutoOutAfter").val(
+          p.auto_check_out_after_minutes ?? 60
+        );
+        $("#policyApprovalMode").val(p.approval_mode || "auto_clean");
+        $("#policyMaxAccuracy").val(p.max_location_accuracy ?? 100);
         $("#policyRounding").val(p.rounding_rule || "none");
         $("#policyAllowWeb").prop("checked", Boolean(p.allow_web));
         $("#policyAllowMobile").prop("checked", Boolean(p.allow_mobile));

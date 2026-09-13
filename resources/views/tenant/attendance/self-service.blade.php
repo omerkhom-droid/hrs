@@ -142,12 +142,57 @@
         border-radius: 14px;
     }
 
+    .sa-camera-stage {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        overflow: hidden;
+        background: #0f172a;
+        border-radius: 14px;
+    }
+
+    .sa-camera-video,
     .sa-photo-preview {
-        width: 82px;
-        height: 82px;
+        width: 100%;
+        height: 100%;
         display: none;
         object-fit: cover;
-        border-radius: 12px;
+        border-radius: 14px;
+    }
+
+    .sa-camera-video {
+        transform: scaleX(-1);
+    }
+
+    .sa-camera-placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 20px;
+        color: #cbd5e1;
+        text-align: center;
+    }
+
+    .sa-camera-placeholder i {
+        font-size: 34px;
+    }
+
+    .sa-camera-status {
+        min-height: 22px;
+        color: var(--sa-muted);
+        font-size: 12px;
+    }
+
+    .sa-camera-status.ready {
+        color: var(--sa-success);
+    }
+
+    .sa-camera-status.error {
+        color: var(--sa-danger);
     }
 
     .sa-message {
@@ -282,22 +327,68 @@
                 </button>
 
                 <div class="sa-photo-box mb-3" id="photoBox">
-                    <div class="d-flex align-items-center gap-3">
-                        <img src="" alt="معاينة الصورة" id="photoPreview" class="sa-photo-preview" />
-                        <div class="flex-grow-1">
-                            <label for="attendancePhoto" class="form-label fw-semibold mb-1">
-                                صورة إثبات الحضور
-                                <span class="text-danger" id="photoRequiredMark">*</span>
-                            </label>
-                            <input
-                                type="file"
-                                class="form-control"
-                                id="attendancePhoto"
-                                accept="image/jpeg,image/png,image/webp"
-                                capture="user"
-                            />
-                            <div class="text-muted small mt-1">الحد الأعلى 5 MB.</div>
+                    <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                        <div class="fw-semibold">
+                            صورة إثبات الحضور المباشرة
+                            <span class="text-danger" id="photoRequiredMark">*</span>
                         </div>
+                        <span class="badge bg-primary-subtle text-primary">
+                            الكاميرا فقط
+                        </span>
+                    </div>
+
+                    <div class="sa-camera-stage" id="cameraStage">
+                        <video
+                            id="attendanceCamera"
+                            class="sa-camera-video"
+                            autoplay
+                            playsinline
+                            muted
+                        ></video>
+
+                        <img
+                            src=""
+                            alt="صورة إثبات الحضور الملتقطة"
+                            id="photoPreview"
+                            class="sa-photo-preview"
+                        />
+
+                        <div class="sa-camera-placeholder" id="cameraPlaceholder">
+                            <i class="bi bi-camera"></i>
+                            <div class="fw-semibold">لم يتم تشغيل الكاميرا بعد</div>
+                            <div class="small">اضغط تشغيل الكاميرا ثم التقط صورة مباشرة.</div>
+                        </div>
+                    </div>
+
+                    <canvas id="attendanceCanvas" class="d-none"></canvas>
+
+                    <div class="sa-camera-status mt-2" id="cameraStatus">
+                        لا يمكن اختيار صورة محفوظة من الجهاز.
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button type="button" class="btn btn-outline-primary flex-grow-1" id="btnOpenCamera">
+                            <i class="bi bi-camera-video ms-1"></i>
+                            تشغيل الكاميرا
+                        </button>
+
+                        <button type="button" class="btn btn-primary flex-grow-1" id="btnCapturePhoto" style="display:none">
+                            <i class="bi bi-camera ms-1"></i>
+                            التقاط الصورة
+                        </button>
+
+                        <button type="button" class="btn btn-outline-secondary flex-grow-1" id="btnRetakePhoto" style="display:none">
+                            <i class="bi bi-arrow-counterclockwise ms-1"></i>
+                            إعادة الالتقاط
+                        </button>
+
+                        <button type="button" class="btn btn-outline-danger" id="btnStopCamera" style="display:none">
+                            إغلاق
+                        </button>
+                    </div>
+
+                    <div class="text-muted small mt-2">
+                        ستتوقف الكاميرا مباشرة بعد التقاط الصورة. الحد الأعلى للصورة 5 MB.
                     </div>
                 </div>
 
@@ -319,6 +410,11 @@
                 <div class="text-muted small mt-3">
                     <i class="bi bi-shield-check ms-1"></i>
                     يتم التحقق من الوقت والموقع وسياسة الشركة داخل الخادم.
+                </div>
+
+                <div class="alert alert-warning small mt-3 mb-0 py-2 d-none" id="autoCheckOutNotice">
+                    <i class="bi bi-clock-history ms-1"></i>
+                    <span></span>
                 </div>
             </div>
         </div>
@@ -438,6 +534,10 @@ jQuery(function ($) {
     let historyPage = 1;
     let historyLastPage = 1;
     let submitting = false;
+    let cameraStream = null;
+    let capturedPhotoBlob = null;
+    let capturedPhotoUrl = null;
+    let capturedPhotoAt = null;
 
     $.ajaxSetup({
         headers: {
@@ -604,6 +704,17 @@ jQuery(function ($) {
         if (policy.require_geofence && !currentPosition) {
             setLocationState('default', 'يجب تحديد موقعك لإتمام البصمة.');
         }
+
+        if (policy.auto_check_out) {
+            $('#autoCheckOutNotice span').text(
+                'إذا نسيت تسجيل الانصراف، سيغلق النظام السجل بعد ' +
+                Number(policy.auto_check_out_after_minutes || 0) +
+                ' دقيقة من نهاية الوردية، ويبقى السجل بانتظار الاعتماد.'
+            );
+            $('#autoCheckOutNotice').removeClass('d-none');
+        } else {
+            $('#autoCheckOutNotice').addClass('d-none');
+        }
     }
 
     function loadToday(showLoading) {
@@ -659,6 +770,29 @@ jQuery(function ($) {
                     accuracy: position.coords.accuracy
                 };
 
+                const maximumAccuracy = todayData && todayData.policy
+                    ? Number(todayData.policy.max_location_accuracy || 100)
+                    : 100;
+
+                if (
+                    todayData &&
+                    todayData.policy.require_geofence &&
+                    Number(position.coords.accuracy) > maximumAccuracy
+                ) {
+                    const accuracyMessage =
+                        'دقة الموقع الحالية ' +
+                        Math.round(position.coords.accuracy) +
+                        ' متر، والمسموح ' +
+                        maximumAccuracy +
+                        ' متر. حاول مرة أخرى قرب نافذة أو باستخدام الجوال.';
+
+                    currentPosition = null;
+                    setLocationState('error', accuracyMessage);
+                    showMessage('error', accuracyMessage);
+                    finishLocationButton();
+                    return;
+                }
+
                 setLocationState(
                     'ready',
                     'تم تحديد الموقع — دقة تقريبية ' +
@@ -690,11 +824,201 @@ jQuery(function ($) {
         );
     }
 
+    function setCameraStatus(type, message) {
+        $('#cameraStatus')
+            .removeClass('ready error')
+            .addClass(type === 'ready' ? 'ready' : type === 'error' ? 'error' : '')
+            .text(message);
+    }
+
+    function stopCamera() {
+        if (cameraStream) {
+            $.each(cameraStream.getTracks(), function (_, track) {
+                track.stop();
+            });
+
+            cameraStream = null;
+        }
+
+        const video = $('#attendanceCamera')[0];
+
+        if (video) {
+            video.srcObject = null;
+        }
+
+        $('#attendanceCamera').hide();
+        $('#btnCapturePhoto, #btnStopCamera').hide();
+
+        if (capturedPhotoBlob) {
+            $('#cameraPlaceholder').hide();
+            $('#photoPreview').show();
+            $('#btnOpenCamera').hide();
+            $('#btnRetakePhoto').show();
+        } else {
+            $('#photoPreview').hide();
+            $('#cameraPlaceholder').show();
+            $('#btnRetakePhoto').hide();
+            $('#btnOpenCamera').show().prop('disabled', false);
+        }
+    }
+
+    function clearCapturedPhoto() {
+        if (capturedPhotoUrl) {
+            URL.revokeObjectURL(capturedPhotoUrl);
+            capturedPhotoUrl = null;
+        }
+
+        capturedPhotoBlob = null;
+        capturedPhotoAt = null;
+        $('#photoPreview').attr('src', '').hide();
+        $('#cameraPlaceholder').show();
+        $('#btnRetakePhoto').hide();
+        $('#btnOpenCamera').show().prop('disabled', false);
+    }
+
+    function cameraErrorMessage(error) {
+        if (!error) {
+            return 'تعذر تشغيل الكاميرا.';
+        }
+
+        if (error.name === 'NotAllowedError') {
+            return 'تم رفض إذن الكاميرا. اسمح للموقع باستخدام الكاميرا ثم حاول مرة أخرى.';
+        }
+
+        if (error.name === 'NotFoundError') {
+            return 'لم يتم العثور على كاميرا متاحة في الجهاز.';
+        }
+
+        if (error.name === 'NotReadableError') {
+            return 'الكاميرا مستخدمة في برنامج آخر أو يتعذر الوصول إليها.';
+        }
+
+        if (error.name === 'OverconstrainedError') {
+            return 'الكاميرا لا تدعم إعدادات التصوير المطلوبة.';
+        }
+
+        return 'تعذر تشغيل الكاميرا. تحقق من الإذن واستخدم HTTPS أو localhost.';
+    }
+
+    function openCamera() {
+        hideMessage();
+
+        if (
+            !navigator.mediaDevices ||
+            typeof navigator.mediaDevices.getUserMedia !== 'function'
+        ) {
+            const message =
+                'المتصفح لا يدعم التصوير المباشر، أو أن الصفحة لا تعمل عبر HTTPS أو localhost.';
+
+            setCameraStatus('error', message);
+            showMessage('error', message);
+            return;
+        }
+
+        stopCamera();
+        $('#btnOpenCamera, #btnRetakePhoto').hide();
+        $('#cameraPlaceholder').show();
+        $('#cameraPlaceholder .fw-semibold').text('جاري تشغيل الكاميرا...');
+        $('#cameraPlaceholder .small').text('قد يطلب المتصفح السماح باستخدام الكاميرا.');
+        setCameraStatus('', 'جاري طلب إذن الكاميرا...');
+
+        navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                facingMode: { ideal: 'user' },
+                width: { ideal: 1280 },
+                height: { ideal: 960 }
+            }
+        }).then(function (stream) {
+            cameraStream = stream;
+
+            const video = $('#attendanceCamera')[0];
+            video.srcObject = stream;
+
+            $('#cameraPlaceholder').hide();
+            $('#photoPreview').hide();
+            $('#attendanceCamera').show();
+            $('#btnCapturePhoto, #btnStopCamera').show();
+            setCameraStatus('ready', 'الكاميرا جاهزة. انظر إلى الكاميرا ثم اضغط التقاط الصورة.');
+
+            const playResult = video.play();
+
+            if (playResult && typeof playResult.catch === 'function') {
+                playResult.catch(function () {
+                    setCameraStatus('error', 'تعذر بدء معاينة الكاميرا. حاول مرة أخرى.');
+                });
+            }
+        }).catch(function (error) {
+            const message = cameraErrorMessage(error);
+
+            stopCamera();
+            $('#cameraPlaceholder .fw-semibold').text('لم يتم تشغيل الكاميرا');
+            $('#cameraPlaceholder .small').text('راجع إذن الكاميرا في المتصفح.');
+            setCameraStatus('error', message);
+            showMessage('error', message);
+        });
+    }
+
+    function capturePhoto() {
+        const video = $('#attendanceCamera')[0];
+        const canvas = $('#attendanceCanvas')[0];
+
+        if (
+            !cameraStream ||
+            !video ||
+            !canvas ||
+            !video.videoWidth ||
+            !video.videoHeight
+        ) {
+            showMessage('error', 'الكاميرا غير جاهزة بعد. انتظر لحظة ثم حاول مرة أخرى.');
+            return;
+        }
+
+        $('#btnCapturePhoto').prop('disabled', true).text('جاري الالتقاط...');
+
+        const maximumDimension = 1600;
+        const scale = Math.min(
+            1,
+            maximumDimension / Math.max(video.videoWidth, video.videoHeight)
+        );
+
+        canvas.width = Math.round(video.videoWidth * scale);
+        canvas.height = Math.round(video.videoHeight * scale);
+
+        const context = canvas.getContext('2d');
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(function (blob) {
+            $('#btnCapturePhoto')
+                .prop('disabled', false)
+                .html('<i class="bi bi-camera ms-1"></i> التقاط الصورة');
+
+            if (!blob) {
+                showMessage('error', 'تعذر تجهيز الصورة الملتقطة. حاول مرة أخرى.');
+                return;
+            }
+
+            if (blob.size > 5 * 1024 * 1024) {
+                showMessage('error', 'حجم الصورة الملتقطة أكبر من 5 MB. أعد الالتقاط.');
+                return;
+            }
+
+            if (capturedPhotoUrl) {
+                URL.revokeObjectURL(capturedPhotoUrl);
+            }
+
+            capturedPhotoBlob = blob;
+            capturedPhotoAt = new Date().toISOString();
+            capturedPhotoUrl = URL.createObjectURL(blob);
+
+            $('#photoPreview').attr('src', capturedPhotoUrl).show();
+            setCameraStatus('ready', 'تم التقاط صورة مباشرة وهي جاهزة للإرسال.');
+            stopCamera();
+        }, 'image/jpeg', 0.88);
+    }
+
     function selectedPhoto() {
-        const input = $('#attendancePhoto')[0];
-        return input && input.files && input.files.length
-            ? input.files[0]
-            : null;
+        return capturedPhotoBlob;
     }
 
     function validateBeforePunch(action) {
@@ -710,6 +1034,23 @@ jQuery(function ($) {
 
         if (action === 'check-out' && !todayData.can_check_out) {
             showMessage('error', 'تسجيل الانصراف غير متاح في الوقت الحالي.');
+            return false;
+        }
+
+        if (
+            todayData.policy.require_geofence &&
+            currentPosition &&
+            Number(currentPosition.accuracy || 0) >
+                Number(todayData.policy.max_location_accuracy || 100)
+        ) {
+            showMessage(
+                'error',
+                'دقة الموقع الحالية ' +
+                    Math.round(currentPosition.accuracy) +
+                    ' متر، والمسموح ' +
+                    Number(todayData.policy.max_location_accuracy || 100) +
+                    ' متر. أعد تحديد موقعك.'
+            );
             return false;
         }
 
@@ -743,7 +1084,14 @@ jQuery(function ($) {
         }
 
         if (photo) {
-            formData.append('photo', photo);
+            formData.append(
+                'photo',
+                photo,
+                'attendance-camera-' + Date.now() + '.jpg'
+            );
+            formData.append('capture_method', 'camera');
+            formData.append('captured_at', capturedPhotoAt);
+            formData.append('camera_facing', 'user');
         }
 
         submitting = true;
@@ -759,8 +1107,9 @@ jQuery(function ($) {
             dataType: 'json'
         }).done(function (response) {
             showMessage('success', response.message);
-            $('#attendancePhoto').val('');
-            $('#photoPreview').attr('src', '').hide();
+            stopCamera();
+            clearCapturedPhoto();
+            setCameraStatus('', 'يجب التقاط صورة مباشرة جديدة لكل عملية حضور أو انصراف.');
             loadToday(false);
             loadHistory(1);
         }).fail(function (xhr) {
@@ -841,19 +1190,25 @@ jQuery(function ($) {
         postPunch('check-out');
     });
 
-    $('#attendancePhoto').on('change', function () {
-        const file = selectedPhoto();
+    $('#btnOpenCamera').on('click', function () {
+        clearCapturedPhoto();
+        openCamera();
+    });
 
-        if (!file) {
-            $('#photoPreview').attr('src', '').hide();
-            return;
-        }
+    $('#btnCapturePhoto').on('click', function () {
+        capturePhoto();
+    });
 
-        const reader = new FileReader();
-        reader.onload = function (event) {
-            $('#photoPreview').attr('src', event.target.result).show();
-        };
-        reader.readAsDataURL(file);
+    $('#btnRetakePhoto').on('click', function () {
+        clearCapturedPhoto();
+        openCamera();
+    });
+
+    $('#btnStopCamera').on('click', function () {
+        stopCamera();
+        $('#cameraPlaceholder .fw-semibold').text('لم يتم تشغيل الكاميرا بعد');
+        $('#cameraPlaceholder .small').text('اضغط تشغيل الكاميرا ثم التقط صورة مباشرة.');
+        setCameraStatus('', 'تم إغلاق الكاميرا دون التقاط صورة.');
     });
 
     $('#historyPrevious').on('click', function () {
@@ -862,6 +1217,21 @@ jQuery(function ($) {
 
     $('#historyNext').on('click', function () {
         if (historyPage < historyLastPage) loadHistory(historyPage + 1);
+    });
+
+    $(document).on('visibilitychange', function () {
+        if (document.hidden && cameraStream) {
+            stopCamera();
+            setCameraStatus('', 'تم إغلاق الكاميرا عند مغادرة الصفحة. شغّلها مجددًا للالتقاط.');
+        }
+    });
+
+    $(window).on('pagehide beforeunload', function () {
+        stopCamera();
+
+        if (capturedPhotoUrl) {
+            URL.revokeObjectURL(capturedPhotoUrl);
+        }
     });
 
     updateClock();

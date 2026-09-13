@@ -14,3 +14,6 @@ Schedule::command(
 )
     ->everyMinute()
     ->withoutOverlapping();
+
+
+require __DIR__ . '/attendance-schedule.php';
